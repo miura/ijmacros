@@ -327,6 +327,9 @@ macro "test measuring two points"{
 }
 
 //assumes there is only one dot
+// should be added with 
+//	(1) more eparameters, shape factor and total intensity/dot, size 
+//	(2) results should be with two dots always. 
 function GetDotCoordinates(){
 	wintitle = getTitle();
 	//following option is specific to Fiji
