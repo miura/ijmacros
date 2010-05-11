@@ -1,8 +1,55 @@
-macro "test 3D dot detection"{
+
+
+//run("Set Scale...", "distance=0 known=0 pixel=1 unit=pixel");
+//run("Properties...", "channels=1 slices=8 frames=46 unit=pixel pixel_width=1.0000 pixel_height=1.0000 voxel_depth=3 frame=[NaN sec] origin=0,0");
+
+macro "test 3D-t binary image"{
+	zframes = getNumber("Z frames?", 8);
+	tframes = nSlices/zframes;
+	cchannel = 0;
+	Stack.getDimensions(width, height, channels, slices, frames);
+	stackID = getImageID();
+	run("Clear Results");
+	counter =0;
+	for(i=0; i<tframes; i++){
+		newImage("singletimepoint", "8-bit Black", width, height, zframes);
+		singleID = getImageID();
+		for (j=0; j<zframes; j++){
+			selectImage(stackID);
+			setSlice(i*zframes + 1 + j);
+			run("Select All");
+			run("Copy");
+			selectImage(singleID);
+			setSlice(1 + j);
+			run("Paste");
+		}
+		selectImage(singleID);
+		GetDotCoordinatesV2();
+		for(j =0; j<res3DobjA[0]; j++){
+			setResult("timepoint", counter, i);
+			setResult("channel", counter, cchannel);
+			setResult("dotID", counter, j);
+			setResult("volume", counter, res3DobjA[j* Gpnum + 1]);
+			setResult("surface", counter, res3DobjA[j* Gpnum + 2]);
+			setResult("intensity", counter, res3DobjA[j* Gpnum + 3]);				
+			setResult("surface", counter, res3DobjA[j* Gpnum + 4]);	
+			setResult("y", counter, res3DobjA[j* Gpnum + 5]);
+			setResult("z", counter, res3DobjA[j* Gpnum + 6]);
+			counter++;
+		}
+		selectImage(singleID);
+		close();
+	}
+}
+
+//processes single time point 3D stack, binary (segmented)
+macro "test 3D dot detection single time point binary"{
 	GetDotCoordinatesV2();
 }
 
-var res3DobjA = newArray(701); //storing 3D obejct counter one dot would occupy 7 indices
+var Gpnum =6; // number of parameters per dot
+var res3DobjA = newArray(Gpnum*200+1); //storing 3D obejct counter one dot would occupy Gpnum oof parameters
+				// [0] would contain number of dots. 
 /*
 0 number of dots detected
 1 volume
@@ -37,10 +84,64 @@ function GetDotCoordinatesV2(){
 	res3DobjA[0] = tableA.length-1;
 	for (i=1; i<tableA.length; i++){
 		paraA=split(tableA[i]);
-		for (j=0; j<6; j++) res3DobjA[(i-1)*6+j+1] = paraA[j+1];
+		for (j=0; j<Gpnum; j++) res3DobjA[(i-1)*Gpnum+j+1] = paraA[j+1];
 	}
-	for(i=0; i<res3DobjA[0]*6+1; i++) print(res3DobjA[i]);
-}	
+	for(i=0; i<res3DobjA[0]*Gpnum+1; i++) print(res3DobjA[i]);
+	tA=newArray(res3DobjA[0]*Gpnum + 1);
+	sortDotArrays(res3DobjA, tA);
+	for (i=0; i<tA[0]; i++){
+		rowinfo = "";
+		for (j = i*Gpnum+1; j<(i+1)*Gpnum+1; j++) rowinfo += "..."+tA[j];
+		print(rowinfo);
+	}
+}
+
+macro "test sorting decending"{
+	res3DobjA[0] = 6;
+	res3DobjA[1] = 10;res3DobjA[2] = 1;res3DobjA[3] = 1;res3DobjA[4] = 1;	
+	res3DobjA[7] = 30;
+	res3DobjA[13] = 30;	
+	res3DobjA[19] = 50;res3DobjA[20] = 60;res3DobjA[21] =80;res3DobjA[22] = 70;
+	res3DobjA[25] = 25;
+	res3DobjA[31] = 35;	
+	tA=newArray(res3DobjA[0]*Gpnum + 1);
+	sortDotArrays(res3DobjA, tA);
+	for (i=0; i<tA.length; i++) print(tA[i]); 	
+}
+
+//sort content of array (one dot with 6 parameters are sorted according to volume in decending order)
+function sortDotArrays(res3DobjA, resSortedA){ 
+	if (res3DobjA[0]>1){
+		volA = newArray(res3DobjA[0]);
+		indA = newArray(res3DobjA[0]);
+		flagA = newArray(res3DobjA[0]);
+		for (j=0; j<indA.length; j++){
+			maxvol =-1;
+			maxindex = 0;
+			
+			for (i = 0; i<indA.length; i++){
+				volnow = res3DobjA[i*Gpnum+ 1];
+				if (flagA[i] != 1){
+					//if ((volA[j-1]>=volnow) && (volnow>maxvol)){
+					if (volnow>maxvol){
+						maxvol = volnow;
+						maxindex =i;
+					}
+				}
+			}
+			volA[j] = maxvol;
+			indA[j] = maxindex;
+			flagA[maxindex] =1;
+		}
+	}
+	for(i=0; i<volA.length; i++){
+		print(""+indA[i]+" : "+volA[i]);
+	}
+	for (i = 0; i< res3DobjA[0]; i++){
+		resSortedA[0] = res3DobjA[0];
+		for (j=0; j<Gpnum; j++) resSortedA[1+i*Gpnum+j] = res3DobjA[1+indA[i]*Gpnum+j];
+	}
+}
 
 /*	
 	selectedline = 1; //default, only one dot detected.

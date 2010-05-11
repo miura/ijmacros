@@ -329,6 +329,7 @@ macro "test measuring two points"{
 }
 
 //assumes there is only one dot
+// should be separated with plugin calling and 3D object study. 
 // should be added with 
 //	(1) more eparameters, shape factor and total intensity/dot, size 
 //	(2) results should be with two dots always. 
