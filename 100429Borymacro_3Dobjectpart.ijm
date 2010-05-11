@@ -3,6 +3,38 @@
 //run("Set Scale...", "distance=0 known=0 pixel=1 unit=pixel");
 //run("Properties...", "channels=1 slices=8 frames=46 unit=pixel pixel_width=1.0000 pixel_height=1.0000 voxel_depth=3 frame=[NaN sec] origin=0,0");
 
+var GminimumFISHvoxelSize = 2;
+
+
+
+//090728
+// find singular signals, and recursivlely increase the minimum size until nuber of dots are less than or euqal to 2
+// this automatically leaves less than or euqals to 2 dots, largest of existing particles. 
+function KreturnOptimizedMinimumVoxleCutoff(sigID){
+		dots255 =10; //dummy number
+		minvoxels = GminimumFISHvoxelSize;
+		selectImage(sigID);
+		setBatchMode(true);
+		while(dots255 >2) {
+			selectImage(sigID);
+			//op = "threshold=128 slice="+nSlices+" min="+minvoxels +" max=4000 new_results geometrical dot=1 font=12"; //090728
+ 			op = "threshold=128 slice=1 min="+GminimumFISHvoxelSize+" max=5000 new_results dot=3 font=12"
+			run("Object Counter3D", op); //090728 for getting single point, require object counter 3D
+			singularsigID = getImageID();	//090728	use sigID
+			run("Multiply...", "value=255 stack");	//090728
+			run("8-bit");	//090728
+			dots255 = 	 ReturnStackHistogram255thValue();		
+			//if (minvoxels == GminimumFISHvoxelSize)	print("Minimum Voxel:"+minvoxels+" --> dots:"+dots255 );
+			close();
+/*			if(dots255 <=2) {
+				print("Minimum Voxel:"+minvoxels+" --> dots:"+dots255 );
+			}
+*/			minvoxels ++;
+		}
+		setBatchMode("exit and display");
+		return (minvoxels -1);
+}
+
 macro "test 3D-t binary image"{
 	zframes = getNumber("Z frames?", 8);
 	tframes = nSlices/zframes;
@@ -24,23 +56,28 @@ macro "test 3D-t binary image"{
 			run("Paste");
 		}
 		selectImage(singleID);
-		GetDotCoordinatesV2();
-		for(j =0; j<res3DobjA[0]; j++){
-			setResult("timepoint", counter, i);
-			setResult("channel", counter, cchannel);
-			setResult("dotID", counter, j);
-			setResult("volume", counter, res3DobjA[j* Gpnum + 1]);
-			setResult("surface", counter, res3DobjA[j* Gpnum + 2]);
-			setResult("intensity", counter, res3DobjA[j* Gpnum + 3]);				
-			setResult("surface", counter, res3DobjA[j* Gpnum + 4]);	
-			setResult("y", counter, res3DobjA[j* Gpnum + 5]);
-			setResult("z", counter, res3DobjA[j* Gpnum + 6]);
-			counter++;
+		dotsnum = GetDotCoordinatesV2();
+		if (dotsnum >0) {
+			for(j =0; j<res3DobjA[0]; j++){
+				setResult("timepoint", counter, i);
+				setResult("channel", counter, cchannel);
+				setResult("dotID", counter, j);
+				setResult("volume", counter, res3DobjA[j* Gpnum + 1]);
+				setResult("surface", counter, res3DobjA[j* Gpnum + 2]);
+				setResult("intensity", counter, res3DobjA[j* Gpnum + 3]);				
+				setResult("x", counter, res3DobjA[j* Gpnum + 4]);	
+				setResult("y", counter, res3DobjA[j* Gpnum + 5]);
+				setResult("z", counter, res3DobjA[j* Gpnum + 6]);
+				counter++;
+			}
+			updateResults();
 		}
 		selectImage(singleID);
 		close();
 	}
 }
+
+
 
 //processes single time point 3D stack, binary (segmented)
 macro "test 3D dot detection single time point binary"{
@@ -82,18 +119,21 @@ function GetDotCoordinatesV2(){
 	print("detected dot number:"+tableA.length-1);
 	for (i=0; i<tableA.length; i++) print(tableA[i]);
 	res3DobjA[0] = tableA.length-1;
-	for (i=1; i<tableA.length; i++){
-		paraA=split(tableA[i]);
-		for (j=0; j<Gpnum; j++) res3DobjA[(i-1)*Gpnum+j+1] = paraA[j+1];
+	if (res3DobjA[0]>0) {
+		for (i=1; i<tableA.length; i++){
+			paraA=split(tableA[i]);
+			for (j=0; j<Gpnum; j++) res3DobjA[(i-1)*Gpnum+j+1] = paraA[j+1];
+		}
+		for(i=0; i<res3DobjA[0]*Gpnum+1; i++) print(res3DobjA[i]);
+		tA=newArray(res3DobjA[0]*Gpnum + 1);
+		sortDotArrays(res3DobjA, tA);
+		for (i=0; i<tA[0]; i++){
+			rowinfo = "";
+			for (j = i*Gpnum+1; j<(i+1)*Gpnum+1; j++) rowinfo = rowinfo + "..."+tA[j];
+			print(rowinfo);
+		}
 	}
-	for(i=0; i<res3DobjA[0]*Gpnum+1; i++) print(res3DobjA[i]);
-	tA=newArray(res3DobjA[0]*Gpnum + 1);
-	sortDotArrays(res3DobjA, tA);
-	for (i=0; i<tA[0]; i++){
-		rowinfo = "";
-		for (j = i*Gpnum+1; j<(i+1)*Gpnum+1; j++) rowinfo += "..."+tA[j];
-		print(rowinfo);
-	}
+	return res3DobjA[0]; // number of dots detected
 }
 
 macro "test sorting decending"{
@@ -111,10 +151,11 @@ macro "test sorting decending"{
 
 //sort content of array (one dot with 6 parameters are sorted according to volume in decending order)
 function sortDotArrays(res3DobjA, resSortedA){ 
+	volA = newArray(res3DobjA[0]);
+	indA = newArray(res3DobjA[0]);
+	flagA = newArray(res3DobjA[0]);
 	if (res3DobjA[0]>1){
-		volA = newArray(res3DobjA[0]);
-		indA = newArray(res3DobjA[0]);
-		flagA = newArray(res3DobjA[0]);
+
 		for (j=0; j<indA.length; j++){
 			maxvol =-1;
 			maxindex = 0;
@@ -133,6 +174,9 @@ function sortDotArrays(res3DobjA, resSortedA){
 			indA[j] = maxindex;
 			flagA[maxindex] =1;
 		}
+	} else {
+		volA[0] =  resSortedA[1];
+		indA[0] = 0;
 	}
 	for(i=0; i<volA.length; i++){
 		print(""+indA[i]+" : "+volA[i]);
