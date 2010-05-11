@@ -1,3 +1,5 @@
+// Yeast chromosome dynamics, April 2010-
+//Kota MIura
 
 var Gtimepoints = 5;
 var Gzslices = 8;
