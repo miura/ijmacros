@@ -105,6 +105,14 @@ macro "... check detected dots"{
 
 }
 
+macro "... create masked original"{
+	selectImage(Gbin3DID);
+	run("Duplicate...", "title=bin-1 duplicate range=1-"+nSlices);
+	temp3DbinID = getImageID();
+	run("Divide...", "value=255 stack");
+	imageCalculator("Multiply create stack", GorgID ,temp3DbinID);
+}
+
 
 
 function thadjustSegmentation(){
@@ -277,10 +285,18 @@ macro "Measure 3D-t binary image"{
 				setResult("dotID", counter, j);
 				setResult("volume", counter, res3DobjA[j* Gpnum + 1]);
 				setResult("surface", counter, res3DobjA[j* Gpnum + 2]);
+/* old version object3D
 				setResult("intensity", counter, res3DobjA[j* Gpnum + 3]);				
 				setResult("x", counter, res3DobjA[j* Gpnum + 4]);	
 				setResult("y", counter, res3DobjA[j* Gpnum + 5]);
 				setResult("z", counter, res3DobjA[j* Gpnum + 6]);
+*/
+				setResult("intTotal", counter, res3DobjA[j* Gpnum + 5]);
+				setResult("intMean", counter, res3DobjA[j* Gpnum + 6]);				
+				setResult("x", counter, res3DobjA[j* Gpnum + 11]);	
+				setResult("y", counter, res3DobjA[j* Gpnum + 12]);
+				setResult("z", counter, res3DobjA[j* Gpnum + 13]);
+
 				counter++;
 			}
 			updateResults();
@@ -315,7 +331,9 @@ macro "test 3D dot detection single time point binary"{
 	GetDotCoordinatesV2();
 }
 
-var Gpnum =6; // number of parameters per dot
+//var Gpnum =6; // number of parameters per dot for Object3D counter
+var Gpnum =25; // number of parameters per dot for Object3D counter	case of new version
+
 var res3DobjA = newArray(Gpnum*200+1); //storing 3D obejct counter one dot would occupy Gpnum oof parameters
 				// [0] would contain number of dots. 
 /*
@@ -330,6 +348,35 @@ var res3DobjA = newArray(Gpnum*200+1); //storing 3D obejct counter one dot would
 1- 7 should be then iterated for number of dots detected. 
 */
 
+/* in case of new version, results table consists of
+0 count
+1 volume
+2. Surface
+3 Nb. of obj voxels
+4 Nb of surf voxels
+5 intDen
+6 Mean
+7 StdDev
+8 Median
+9 Min
+10 Max
+11 centx
+12 centy
+13 centz
+14 --
+15
+16
+17 density weighted x
+18 density weighted y
+19 density weighted z
+20 BX
+21BY
+22BZ
+23 bw
+24 bh
+25 bd
+*/
+
 // for detecting dots in single frame
 //works with binarized image
 function GetDotCoordinatesV2(){
@@ -337,13 +384,15 @@ function GetDotCoordinatesV2(){
 	minvoxelsize = Gminvoxelsize4measure ;
 	//should check scale here. 
 	//following option is specific to Fiji
-	  //run("3D OC Options", "volume surface nb_of_obj._voxels nb_of_surf._voxels integrated_density mean_gray_value std_dev_gray_value median_gray_value minimum_gray_value maximum_gray_value centroid mean_distance_to_surface std_dev_distance_to_surface median_distance_to_surface centre_of_mass bounding_box dots_size=5 font_size=10 store_results_within_a_table_named_after_the_image_(macro_friendly) redirect_to=none");
+	run("3D OC Options", "volume surface nb_of_obj._voxels nb_of_surf._voxels integrated_density mean_gray_value std_dev_gray_value median_gray_value minimum_gray_value maximum_gray_value centroid mean_distance_to_surface std_dev_distance_to_surface median_distance_to_surface centre_of_mass bounding_box dots_size=5 font_size=10 store_results_within_a_table_named_after_the_image_(macro_friendly) redirect_to=none");
 	//below is for Fiji pluign
-	  //run("3D Objects Counter", "threshold=128 slice=1 min.="+minvoxelsize +" max.=480000 statistics");
+	//run("3D Objects Counter", "threshold=128 slice=1 min.="+minvoxelsize +" max.=480000 statistics");
+	run("3D Objects Counter", "threshold=1 slice=1 min.="+minvoxelsize +" max.=480000 statistics");
+
 	//below is for ImageJ plugin
-	run("Object Counter3D", "threshold=128 slice=1 min="+minvoxelsize +" max=480000 new_results dot=3 font=12");
-	resultwin = "Results from " + wintitle; //ImageJ
-	//resultwin = "Statistics for " + wintitle; //Fiji
+	//run("Object Counter3D", "threshold=128 slice=1 min="+minvoxelsize +" max=480000 new_results dot=3 font=12");
+	//resultwin = "Results from " + wintitle; //ImageJ
+	resultwin = "Statistics for " + wintitle; //Fiji
 	selectWindow(resultwin);
 	//print(getInfo("window.contents"));
 	tabletext = getInfo("window.contents");
