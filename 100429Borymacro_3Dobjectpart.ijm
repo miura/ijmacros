@@ -21,63 +21,105 @@ var tframes = 46;
 var channels = 1;
 var adjustedTHlowA = newArray(1000); //stores threshold value after adjustment  //the first value in this array contains the number of time points. 
 
-// uses threshold adjustment tool made for nuc distance map to segment dots in each time point. 
-// criteria for the adjustment is based on the segmented dot size (total)
-//in Bory's prokject, this should be done after FFT band pass filter
-macro "adjusted threshold segmentation"{
-	StoreOriginalScale();
-	StoreAndClearScalingDimension();
-	thadjustSegmentation();
+var Gmaxspotvoxels = 55;
+var Gminimumvoxels = 35;
+
+var GorgID =0;
+var Gbin3DID =0;
+
+var Gminvoxelsize4measure =7; //smallest volume to be included in measurments. 
+
+
+//======== scales, settings =======
+macro "settings"{}
+macro "... Store original Scale and Dimensions"{
+	StoreOriginalScaleDims();
+}
+macro "... restore original scaling"{
+	setVoxelSize(xyscaling , xyscaling , zscaling , Gunit);
+	Stack.setDimensions(channels, zframes, tframes);
 }
 
-function StoreOriginalScale(){
+function StoreOriginalScaleDims(){
 	getVoxelSize(Orgxyscaling ,Orgxyscaling , Orgzscaling , Gunit);
 	Stack.getDimensions(width, height, Orgchannels, Orgzframes, Orgtframes);
 }
 
-function reStoreOriginalScale(){
+function reStoreOriginalScaleDims(){
 	setVoxelSize(Orgxyscaling ,Orgxyscaling , Orgzscaling , Gunit);
+	Stack.setDimensions(Orgchannels, Orgzframes, Orgtframes);
 }
 
 
 //set voxel to 1:1:1 scale so this could be duplicated easily by settign the slice range. 
 function StoreAndClearScalingDimension(){
-	getVoxelSize(xyscaling , xyscaling , zscaling , Gunit);
+	getVoxelSize(xyscaling , xyscaling , zscaling , unit);
 	Stack.getDimensions(width, height, channels, zframes, tframes);
 	zfactor = zscaling/xyscaling;
 	setVoxelSize(1, 1, zfactor, "pixels");
 	Stack.setDimensions(channels, zframes*tframes, 1);
 }
 
+macro "-"{}
+
+// uses threshold adjustment tool made for nuc distance map to segment dots in each time point. 
+// criteria for the adjustment is based on the segmented dot size (total)
+//in Bory's prokject, this should be done after FFT band pass filter
+macro "adjusted threshold segmentation"{
+	StoreOriginalScaleDims();
+	GorgID = getImageID();
+	StoreAndClearScalingDimension();
+	thadjustSegmentation();
+	Gbin3DID = getImageID();
+	Stack.setDimensions(Orgchannels, Orgzframes, Orgtframes);
+	selectImage(GorgID);
+	reStoreOriginalScaleDims();
+}
+
+//need to be done after above
+macro "... check detected dots"{
+	selectImage(Gbin3DID);
+	op ="order=xyczt(default) channels=1 slices="+Orgzframes+" frames="+Orgtframes+" display=Grayscale";
+	run("Stack to Hyperstack...", op);
+	opz = "start=1 stop="+Orgzframes+" projection=[Max Intensity] all";
+	run("Z Project...", opz);
+	projbinID = getImageID();
+	run("Make Montage...", "columns=8 rows=6 scale=1 first=1 last=46 increment=1 border=0 font=10");
+	rename("MontBin");
+
+	selectImage(GorgID);
+	run("Stack to Hyperstack...", op);
+	selectImage(GorgID);
+	run("Z Project...", opz);
+	projorgID = getImageID();
+	run("Make Montage...", "columns=8 rows=6 scale=1 first=1 last=46 increment=1 border=0 font=10");
+	rename("MontOrg");
+	
+	run("Merge Channels...", "red=MontBin green=MontOrg blue=*None* gray=*None*");
+
+	//run("Duplicate...", "title=bin-1 duplicate range=1-368");
+	//temp3DbinID = getImageID();
+	//run("Divide...", "value=255 stack");
+	//imageCalculator("Multiply create stack", GorgID ,temp3DbinID);
+	
+
+}
+
+
+
 function thadjustSegmentation(){
 	zframes = Orgzframes;
 	if (Orgzframes ==1) zframes = getNumber("Z frames?", 8);
 	tframes = nSlices/zframes;
 	cchannel = 0;
-	//Stack.getDimensions(width, height, channels, slices, frames);
 	stackID = getImageID();
 
 	adjustedTHlowA[0] = tframes;  //the first value in this array contains the number of time points. 
 
 	setBatchMode(true);
-	//newImage("singletimepoint", "8-bit Black", width, height, zframes);
-	//singleID = getImageID();
-	//newImage("segmented", "8-bit Black", width, height, zframes*tframes);
-	//binID = getImageID();
-	//run("Clear Results");
 	counter =0;
 	for(i=0; i<tframes; i++){
 		print("Time Point: "+i);
-/*		for (j=0; j<zframes; j++){
-			selectImage(stackID);
-			setSlice(i*zframes + 1 + j);
-			run("Select All");
-			run("Copy");
-			selectImage(singleID);
-			setSlice(1 + j);
-			run("Paste");
-		}
-*/
 		selectImage(stackID);
 		op = "title=single duplicate range="+i*zframes + 1+"-"+(i+1)*zframes;
 		print(op);
@@ -97,27 +139,12 @@ function thadjustSegmentation(){
 		if (i>0) 	run("Concatenate...", "stack1=bin stack2=single title=combined");
 		rename("bin");			
 
-/*		for (j=0; j<zframes; j++){
-			selectImage(singleID);
-			setSlice(1 + j);
-			run("Select All");
-			run("Copy");
-			selectImage(binID);
-			setSlice(i*zframes+1 + j);
-			run("Paste");
-		}
-*/
 	}
-	//selectImage(singleID);
-	//close();
 	setBatchMode("exit and display");
 
 }
 
-macro "restore original scaling"{
-	setVoxelSize(xyscaling , xyscaling , zscaling , Gunit);
-	Stack.setDimensions(channels, zframes, tframes);
-}
+
 
 
 //090526 not working yet 
@@ -125,8 +152,8 @@ macro "restore original scaling"{
 //GThSignalL is not touched
 // works on window with FISH signal expected to be only one or two. (single nucleus crop)
 function FISHthlowAdjuster(currentThreshold){
-	maxspotvoxels = 70;
-	minimumvoxels = 30;
+	maxspotvoxels = Gmaxspotvoxels ;
+	minimumvoxels = Gminimumvoxels;
 	maxloops = 50;
 	originalstackID = getImageID();
 	setBatchMode(true);
@@ -220,7 +247,7 @@ function KreturnOptimizedMinimumVoxleCutoff(sigID){
 		return (minvoxels -1);
 }
 
-macro "test 3D-t binary image"{
+macro "Measure 3D-t binary image"{
 	zframes = getNumber("Z frames?", 8);
 	tframes = nSlices/zframes;
 	cchannel = 0;
@@ -264,6 +291,23 @@ macro "test 3D-t binary image"{
 	setBatchMode("exit and display");
 }
 
+macro "... plot detected dots"{
+	if (nResults <=1) exit("Measurment of dot not finished");
+	if (nSlices != Orgzframes * Orgtframes) exit("is this really the stack you want to use for plotting dots?");
+	op ="order=xyczt(default) channels=1 slices="+Orgzframes+" frames="+Orgtframes+" display=Grayscale";
+	run("Stack to Hyperstack...", op);
+	opz = "start=1 stop="+Orgzframes+" projection=[Max Intensity] all";
+	run("Z Project...", opz);
+	run("RGB Color");
+	run("Colors...", "foreground=red background=black selection=yellow");
+	for(i=0; i<nResults; i++){
+		setSlice(getResult("timepoint", i)+1);
+		makeRectangle(getResult("x", i), getResult("y", i), 1, 1);
+		run("Fill", "slice");
+	}
+	run("Colors...", "foreground=white background=black selection=yellow");
+}
+
 
 
 //processes single time point 3D stack, binary (segmented)
@@ -290,7 +334,7 @@ var res3DobjA = newArray(Gpnum*200+1); //storing 3D obejct counter one dot would
 //works with binarized image
 function GetDotCoordinatesV2(){
 	wintitle = getTitle();
-	minvoxelsize = 3;
+	minvoxelsize = Gminvoxelsize4measure ;
 	//should check scale here. 
 	//following option is specific to Fiji
 	  //run("3D OC Options", "volume surface nb_of_obj._voxels nb_of_surf._voxels integrated_density mean_gray_value std_dev_gray_value median_gray_value minimum_gray_value maximum_gray_value centroid mean_distance_to_surface std_dev_distance_to_surface median_distance_to_surface centre_of_mass bounding_box dots_size=5 font_size=10 store_results_within_a_table_named_after_the_image_(macro_friendly) redirect_to=none");
@@ -310,7 +354,7 @@ function GetDotCoordinatesV2(){
 	if (res3DobjA[0]>0) {
 		for (i=1; i<tableA.length; i++){
 			paraA=split(tableA[i]);
-			for (j=0; j<Gpnum; j++) res3DobjA[(i-1)*Gpnum+j+1] = paraA[j+1];
+			for (j=0; j<Gpnum; j++) res3DobjA[(i-1)*Gpnum+j+1] = parseFloat(paraA[j+1]);
 		}
 		//for(i=0; i<res3DobjA[0]*Gpnum+1; i++) print(res3DobjA[i]);
 		tA=newArray(res3DobjA[0]*Gpnum + 1);
@@ -319,8 +363,10 @@ function GetDotCoordinatesV2(){
 			rowinfo = "";
 			for (j = i*Gpnum+1; j<(i+1)*Gpnum+1; j++) rowinfo = rowinfo + "..."+tA[j];
 			print(rowinfo);
+			for (j = i*Gpnum+1; j<(i+1)*Gpnum+1; j++) res3DobjA[j] = tA[j];
 		}
 	}
+	
 	return res3DobjA[0]; // number of dots detected
 }
 
@@ -334,7 +380,7 @@ macro "test sorting decending"{
 	res3DobjA[31] = 35;	
 	tA=newArray(res3DobjA[0]*Gpnum + 1);
 	sortDotArrays(res3DobjA, tA);
-	//for (i=0; i<tA.length; i++) print(tA[i]); 	
+	for (i=0; i<tA.length; i++) print(tA[i]); 	
 }
 
 //sort content of array (one dot with 6 parameters are sorted according to volume in decending order)
