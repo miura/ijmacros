@@ -1,9 +1,17 @@
 
+requires("1.43u");
 
 //run("Set Scale...", "distance=0 known=0 pixel=1 unit=pixel");
 //run("Properties...", "channels=1 slices=8 frames=46 unit=pixel pixel_width=1.0000 pixel_height=1.0000 voxel_depth=3 frame=[NaN sec] origin=0,0");
 
 var GminimumFISHvoxelSize = 2;
+var Orgxyscaling =1;
+var Orgxyscaling = 1;
+var Orgzscaling = 1;
+var Orgchannels =1;
+var Orgzframes =1;
+var Orgtframes =1;
+
 var xyscaling = 1;
 var zscaling = 3;
 var zfactor =3;
@@ -11,24 +19,56 @@ var Gunit = "";
 var zframes = 8;
 var tframes = 46;
 var channels = 1;
+var adjustedTHlowA = newArray(1000); //stores threshold value after adjustment  //the first value in this array contains the number of time points. 
 
+// uses threshold adjustment tool made for nuc distance map to segment dots in each time point. 
+// criteria for the adjustment is based on the segmented dot size (total)
+//in Bory's prokject, this should be done after FFT band pass filter
 macro "adjusted threshold segmentation"{
-	storeclearScaling();
+	StoreOriginalScale();
+	StoreAndClearScalingDimension();
+	thadjustSegmentation();
+}
 
-	zframes = getNumber("Z frames?", 8);
+function StoreOriginalScale(){
+	getVoxelSize(Orgxyscaling ,Orgxyscaling , Orgzscaling , Gunit);
+	Stack.getDimensions(width, height, Orgchannels, Orgzframes, Orgtframes);
+}
+
+function reStoreOriginalScale(){
+	setVoxelSize(Orgxyscaling ,Orgxyscaling , Orgzscaling , Gunit);
+}
+
+
+//set voxel to 1:1:1 scale so this could be duplicated easily by settign the slice range. 
+function StoreAndClearScalingDimension(){
+	getVoxelSize(xyscaling , xyscaling , zscaling , Gunit);
+	Stack.getDimensions(width, height, channels, zframes, tframes);
+	zfactor = zscaling/xyscaling;
+	setVoxelSize(1, 1, zfactor, "pixels");
+	Stack.setDimensions(channels, zframes*tframes, 1);
+}
+
+function thadjustSegmentation(){
+	zframes = Orgzframes;
+	if (Orgzframes ==1) zframes = getNumber("Z frames?", 8);
 	tframes = nSlices/zframes;
 	cchannel = 0;
-	Stack.getDimensions(width, height, channels, slices, frames);
+	//Stack.getDimensions(width, height, channels, slices, frames);
 	stackID = getImageID();
-	newImage("singletimepoint", "8-bit Black", width, height, zframes);
-	singleID = getImageID();
-	newImage("segmented", "8-bit Black", width, height, zframes*tframes);
-	binID = getImageID();
 
-	run("Clear Results");
+	adjustedTHlowA[0] = tframes;  //the first value in this array contains the number of time points. 
+
+	setBatchMode(true);
+	//newImage("singletimepoint", "8-bit Black", width, height, zframes);
+	//singleID = getImageID();
+	//newImage("segmented", "8-bit Black", width, height, zframes*tframes);
+	//binID = getImageID();
+	//run("Clear Results");
 	counter =0;
 	for(i=0; i<tframes; i++){
-		for (j=0; j<zframes; j++){
+		print("Time Point: "+i);
+/*		for (j=0; j<zframes; j++){
 			selectImage(stackID);
 			setSlice(i*zframes + 1 + j);
 			run("Select All");
@@ -37,7 +77,13 @@ macro "adjusted threshold segmentation"{
 			setSlice(1 + j);
 			run("Paste");
 		}
-		selectImage(singleID);
+*/
+		selectImage(stackID);
+		op = "title=single duplicate range="+i*zframes + 1+"-"+(i+1)*zframes;
+		print(op);
+		run("Duplicate...", op);
+		//selectImage(singleID);
+		singleID = getImageID();
 		opz ="start=1 stop="+zframes+" projection=[Max Intensity]";
 		run("Z Project...", opz);
 		setAutoThreshold("Shanbhag dark");
@@ -45,9 +91,13 @@ macro "adjusted threshold segmentation"{
 		close();
 		selectImage(singleID);
 		lowadjusted = FISHthlowAdjuster(lower);
+		adjustedTHlowA[i+1] =  lowadjusted;
 		setThreshold(lowadjusted, 255);
 		run("Convert to Mask", "  black");
-		for (j=0; j<zframes; j++){
+		if (i>0) 	run("Concatenate...", "stack1=bin stack2=single title=combined");
+		rename("bin");			
+
+/*		for (j=0; j<zframes; j++){
 			selectImage(singleID);
 			setSlice(1 + j);
 			run("Select All");
@@ -56,11 +106,12 @@ macro "adjusted threshold segmentation"{
 			setSlice(i*zframes+1 + j);
 			run("Paste");
 		}
-
+*/
 	}
-	selectImage(singleID);
-	close();
-		
+	//selectImage(singleID);
+	//close();
+	setBatchMode("exit and display");
+
 }
 
 macro "restore original scaling"{
@@ -68,12 +119,6 @@ macro "restore original scaling"{
 	Stack.setDimensions(channels, zframes, tframes);
 }
 
-function storeclearScaling(){
-	getVoxelSize(xyscaling , xyscaling , zscaling , Gunit);
-	Stack.getDimensions(width, height, channels, zframes, tframes);
-	zfactor = zscaling/xyscaling;
-	setVoxelSize(1, 1, zfactor, "pixels");
-}
 
 //090526 not working yet 
 //090813 working
@@ -183,6 +228,7 @@ macro "test 3D-t binary image"{
 	stackID = getImageID();
 	run("Clear Results");
 	counter =0;
+	setBatchMode(true);
 	for(i=0; i<tframes; i++){
 		newImage("singletimepoint", "8-bit Black", width, height, zframes);
 		singleID = getImageID();
@@ -215,6 +261,7 @@ macro "test 3D-t binary image"{
 		selectImage(singleID);
 		close();
 	}
+	setBatchMode("exit and display");
 }
 
 
@@ -243,13 +290,14 @@ var res3DobjA = newArray(Gpnum*200+1); //storing 3D obejct counter one dot would
 //works with binarized image
 function GetDotCoordinatesV2(){
 	wintitle = getTitle();
+	minvoxelsize = 3;
 	//should check scale here. 
 	//following option is specific to Fiji
 	  //run("3D OC Options", "volume surface nb_of_obj._voxels nb_of_surf._voxels integrated_density mean_gray_value std_dev_gray_value median_gray_value minimum_gray_value maximum_gray_value centroid mean_distance_to_surface std_dev_distance_to_surface median_distance_to_surface centre_of_mass bounding_box dots_size=5 font_size=10 store_results_within_a_table_named_after_the_image_(macro_friendly) redirect_to=none");
 	//below is for Fiji pluign
-	  //run("3D Objects Counter", "threshold=128 slice=1 min.=1 max.=480000 statistics");
+	  //run("3D Objects Counter", "threshold=128 slice=1 min.="+minvoxelsize +" max.=480000 statistics");
 	//below is for ImageJ plugin
-	run("Object Counter3D", "threshold=128 slice=1 min=10 max=480000 new_results dot=3 font=12");
+	run("Object Counter3D", "threshold=128 slice=1 min="+minvoxelsize +" max=480000 new_results dot=3 font=12");
 	resultwin = "Results from " + wintitle; //ImageJ
 	//resultwin = "Statistics for " + wintitle; //Fiji
 	selectWindow(resultwin);
@@ -257,14 +305,14 @@ function GetDotCoordinatesV2(){
 	tabletext = getInfo("window.contents");
 	tableA = split(tabletext, "\n");
 	print("detected dot number:"+tableA.length-1);
-	for (i=0; i<tableA.length; i++) print(tableA[i]);
+	//for (i=0; i<tableA.length; i++) print(tableA[i]);
 	res3DobjA[0] = tableA.length-1;
 	if (res3DobjA[0]>0) {
 		for (i=1; i<tableA.length; i++){
 			paraA=split(tableA[i]);
 			for (j=0; j<Gpnum; j++) res3DobjA[(i-1)*Gpnum+j+1] = paraA[j+1];
 		}
-		for(i=0; i<res3DobjA[0]*Gpnum+1; i++) print(res3DobjA[i]);
+		//for(i=0; i<res3DobjA[0]*Gpnum+1; i++) print(res3DobjA[i]);
 		tA=newArray(res3DobjA[0]*Gpnum + 1);
 		sortDotArrays(res3DobjA, tA);
 		for (i=0; i<tA[0]; i++){
@@ -286,7 +334,7 @@ macro "test sorting decending"{
 	res3DobjA[31] = 35;	
 	tA=newArray(res3DobjA[0]*Gpnum + 1);
 	sortDotArrays(res3DobjA, tA);
-	for (i=0; i<tA.length; i++) print(tA[i]); 	
+	//for (i=0; i<tA.length; i++) print(tA[i]); 	
 }
 
 //sort content of array (one dot with 6 parameters are sorted according to volume in decending order)
