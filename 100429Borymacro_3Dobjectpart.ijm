@@ -4,7 +4,147 @@
 //run("Properties...", "channels=1 slices=8 frames=46 unit=pixel pixel_width=1.0000 pixel_height=1.0000 voxel_depth=3 frame=[NaN sec] origin=0,0");
 
 var GminimumFISHvoxelSize = 2;
+var xyscaling = 1;
+var zscaling = 3;
+var zfactor =3;
+var Gunit = "";
+var zframes = 8;
+var tframes = 46;
+var channels = 1;
 
+macro "adjusted threshold segmentation"{
+	storeclearScaling();
+
+	zframes = getNumber("Z frames?", 8);
+	tframes = nSlices/zframes;
+	cchannel = 0;
+	Stack.getDimensions(width, height, channels, slices, frames);
+	stackID = getImageID();
+	newImage("singletimepoint", "8-bit Black", width, height, zframes);
+	singleID = getImageID();
+	newImage("segmented", "8-bit Black", width, height, zframes*tframes);
+	binID = getImageID();
+
+	run("Clear Results");
+	counter =0;
+	for(i=0; i<tframes; i++){
+		for (j=0; j<zframes; j++){
+			selectImage(stackID);
+			setSlice(i*zframes + 1 + j);
+			run("Select All");
+			run("Copy");
+			selectImage(singleID);
+			setSlice(1 + j);
+			run("Paste");
+		}
+		selectImage(singleID);
+		opz ="start=1 stop="+zframes+" projection=[Max Intensity]";
+		run("Z Project...", opz);
+		setAutoThreshold("Shanbhag dark");
+		getThreshold(lower, upper);
+		close();
+		selectImage(singleID);
+		lowadjusted = FISHthlowAdjuster(lower);
+		setThreshold(lowadjusted, 255);
+		run("Convert to Mask", "  black");
+		for (j=0; j<zframes; j++){
+			selectImage(singleID);
+			setSlice(1 + j);
+			run("Select All");
+			run("Copy");
+			selectImage(binID);
+			setSlice(i*zframes+1 + j);
+			run("Paste");
+		}
+
+	}
+	selectImage(singleID);
+	close();
+		
+}
+
+macro "restore original scaling"{
+	setVoxelSize(xyscaling , xyscaling , zscaling , Gunit);
+	Stack.setDimensions(channels, zframes, tframes);
+}
+
+function storeclearScaling(){
+	getVoxelSize(xyscaling , xyscaling , zscaling , Gunit);
+	Stack.getDimensions(width, height, channels, zframes, tframes);
+	zfactor = zscaling/xyscaling;
+	setVoxelSize(1, 1, zfactor, "pixels");
+}
+
+//090526 not working yet 
+//090813 working
+//GThSignalL is not touched
+// works on window with FISH signal expected to be only one or two. (single nucleus crop)
+function FISHthlowAdjuster(currentThreshold){
+	maxspotvoxels = 70;
+	minimumvoxels = 30;
+	maxloops = 50;
+	originalstackID = getImageID();
+	setBatchMode(true);
+	//op = "title=[tempFISHthreshold] duplicate range=1-"+nSlices;
+	op = "title=[tempthreshold] duplicate";
+	run("Duplicate...", op);
+	tempID=getImageID();
+	setThreshold(currentThreshold, 255);
+	run("Convert to Mask", "  black");
+	localthres = currentThreshold;
+	voxelnum =Return255num();
+	print("      FISH voxels before adjustment = "+voxelnum + "(th="+localthres);
+	voxelsA = newArray(maxloops);
+	thresadjustA = newArray(maxloops);
+
+	loopcount =0;
+	while (((voxelnum <minimumvoxels) || (voxelnum >maxspotvoxels)) && (loopcount <maxloops))  {
+		selectImage(tempID);
+		 close();
+		if (voxelnum<minimumvoxels) localthres--;
+		if (voxelnum>maxspotvoxels) localthres++;
+		selectImage(originalstackID);
+		run("Duplicate...", op);
+		tempID=getImageID();
+		setThreshold(localthres, 255);
+		run("Convert to Mask", "  black");
+		voxelnum =Return255num();
+		voxelsA[loopcount] = voxelnum;
+		thresadjustA[loopcount] = localthres;
+		loopcount++;
+		//print("      tresh ="+localthres + " Voxels = "+voxelnum );
+	}
+	selectImage(tempID);
+	close();
+	if (loopcount>=maxloops) {
+		if (voxelsA[loopcount-1]>voxelsA[loopcount-2]) {
+			localthres = thresadjustA[loopcount-1];
+			currentvox =voxelsA[loopcount-1];
+		} else {
+			localthres = thresadjustA[loopcount-2];
+			currentvox =voxelsA[loopcount-2];
+		}
+		print("      ...Looped out: "+loopcount + "  current voxels ="+currentvox ); 
+	} else {
+		print("      ...converged after "+loopcount +" iterations"); 
+
+	}
+	setBatchMode("exit and display");
+	//selectImage(originalstackID);
+	//setThreshold(localthres, 255);
+	return localthres;
+} 
+
+//090526
+function Return255num() {
+	returnflag =0;
+	for(i=0; i<nSlices; i++) {
+		setSlice(i+1);
+		getRawStatistics(nPixels, mean, min, max, std, histogram);
+		returnflag +=histogram[255];
+	}
+	return returnflag;
+}
 
 
 //090728
