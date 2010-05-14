@@ -29,6 +29,12 @@ var Gbin3DID =0;
 
 var Gminvoxelsize4measure =7; //smallest volume to be included in measurments. 
 
+var Gtitle ="ch0";	//ch0
+var G_GID = 0;
+var Rtitle = "ch0";	//ch1
+var G_RID = 1;
+
+
 
 //======== scales, settings =======
 macro "settings"{}
@@ -60,12 +66,88 @@ function StoreAndClearScalingDimension(){
 	Stack.setDimensions(channels, zframes*tframes, 1);
 }
 
+///////////////////////////////  getting windows ////////////////////////////////////
 macro "-"{}
+
+macro "Assign Windows  [f1]" {
+	requires("1.43u");	//090526 for stack function
+	twoImageChoice();
+	selectWindow(Gtitle);	//ch0
+	G_GID = getImageID();
+	selectWindow(Rtitle);	//ch1
+	G_RID = getImageID();
+//	GThSignalL = FISHthresholdFinderisoData(G_RID);	//090526
+//	GThSignalH =255;	//090526
+//	resetThreshold();	//090526
+}
+
+//Kota: choosing two images among currently opened windows
+function twoImageChoice() {
+	//imgnum=Wincount();
+	imgnum=nImages();//Wincount();
+	imgIDA=newArray(imgnum);
+	wintitleA=newArray(imgnum);
+
+	CountOpenedWindows(imgIDA);
+	WinTitleGetter(imgIDA,wintitleA);
+
+ 	Dialog.create("select two images");
+	//Dialog.addNumber("number1:", 0);
+ 	//Dialog.addNumber("number2:", 0);
+	Dialog.addChoice("Ch Signal", wintitleA);
+	Dialog.addChoice("Ch Nucleus", wintitleA);
+ 	Dialog.show();
+ 	//number1 = Dialog.getNumber();
+ 	//number2 = Dialog.getNumber();;
+ 	Rtitle = Dialog.getChoice();
+	Gtitle = Dialog.getChoice();
+	print("Nucleus:"+Gtitle);
+	print("Signal" + Rtitle);
+}
+
+function CountOpenedWindows(imgIDA) {
+	imgcount=0;
+	for(i=0; i>-2000; i--) {
+		if(isOpen(i)) {
+			imgIDA[imgcount]=i;
+			imgcount++;
+		}
+	}
+}
+
+function Wincount() {
+	wincounter=0;
+	for(i=0; i>-2000; i--) {
+		if(isOpen(i)) {
+			wincounter++;
+			//print(i);
+		}
+	}
+	return wincounter;
+}
+
+function WinTitleGetter(idA,titleA) {
+	for (i=0;i<idA.length;i++) {
+		selectImage(idA[i]);
+		titleA[i]=getTitle();
+	}
+}
+
+///////////////////////////////  getting windows end ////////////////////////////////////
+
+macro "-"{}
+
+macro "analyze dot-dot distance (cropped single cell frames)"{
+
+
+}
+
+
 
 // uses threshold adjustment tool made for nuc distance map to segment dots in each time point. 
 // criteria for the adjustment is based on the segmented dot size (total)
 //in Bory's prokject, this should be done after FFT band pass filter
-macro "adjusted threshold segmentation"{
+macro "Auto-Threshold Adjusting Dot Segmentation"{
 	StoreOriginalScaleDims();
 	GorgID = getImageID();
 	StoreAndClearScalingDimension();
@@ -255,14 +337,26 @@ function KreturnOptimizedMinimumVoxleCutoff(sigID){
 		return (minvoxels -1);
 }
 
-macro "Measure 3D-t binary image"{
-	zframes = getNumber("Z frames?", 8);
-	tframes = nSlices/zframes;
-	cchannel = 0;
+macro "Measure 3D-t binary image Ch0"{
+	measure3Dt(0);
+}
+macro "Measure 3D-t binary image Ch1"{
+	measure3Dt(1);
+}
+	
+function measure3Dt(currCh){
+	cchannel = currCh;
+	if (nSlices==1) exit();
 	Stack.getDimensions(width, height, channels, slices, frames);
+	if (frames ==1) zframes = getNumber("Z frames?", 8);
+	else zframes=slices;
+	tframes = nSlices/zframes;
 	stackID = getImageID();
-	run("Clear Results");
-	counter =0;
+
+	if (currCh ==0) 
+		run("Clear Results");
+	counter =nResults;
+
 	setBatchMode(true);
 	for(i=0; i<tframes; i++){
 		newImage("singletimepoint", "8-bit Black", width, height, zframes);
@@ -297,6 +391,9 @@ macro "Measure 3D-t binary image"{
 				setResult("y", counter, res3DobjA[j* Gpnum + 12]);
 				setResult("z", counter, res3DobjA[j* Gpnum + 13]);
 
+				setResult("cx", counter, res3DobjA[j* Gpnum + 17]);	
+				setResult("cy", counter, res3DobjA[j* Gpnum + 18]);
+				setResult("cz", counter, res3DobjA[j* Gpnum + 19]);
 				counter++;
 			}
 			updateResults();
@@ -509,3 +606,78 @@ function sortDotArrays(res3DobjA, resSortedA){
 	return (tableA.length-1); //number of dots detected.
 */	
 }
+
+//***** distance by dot-dot pairing ******
+
+// use modified "stable marrige matching" algorithm?
+// 
+
+//dots0posA single array with dot positions
+//dots0posA and dots1posA should have same number of points. 
+funciton ConvertRanks(dots0posA, dots1posA){
+	 
+}
+
+
+funciton MarrigeMatchAlgorithm(dots0A, dots0distA dots1A, ){
+
+}
+
+// matching by cost function
+funciton Ranks(dots0posA, dots1posA, resultpairA){
+	N0 = dots0posA.length/3;
+	N1 = dots1posA.length/3;
+	if (N0 >= N1) matchnum = N1;
+	else matchnum = N0;
+	currmatch = 0;
+	for (i=0; i<N0; i++){
+		for (j=0; j<)
+		for(k=0; k<3; k++) dist = 
+
+	}
+
+}
+
+macro "choose" {
+	print(mathChoose(5, 3));
+}
+function mathChoose(n, k){
+	factn =0;
+	for (i=1; i<=n; i++) factn *= i;
+	factk =0; 
+	for (i=1; i<=k; i++) factk *= i;
+	factnk = 0;
+	for(i=1; i<=(n-k); i++) factnk *=i;
+	return factn/factk/factnk;
+}
+
+
+/*
+public static long BinomialCoefficient(long n, long k)
+{
+    if (n / 2 < k)
+        return BinomialCoefficient(n, n - k);
+
+    if (k > n)
+        return 0;
+
+    if (k == 0)
+        return 1;
+
+    long result = n;
+    for (long d = 2; d <= k; d++)
+    {
+        long gcd = (long)BigInteger.GreatestCommonDivisor(d, n);
+        result *= (n / gcd);
+        result /= (d / gcd);
+        n++;
+    }
+
+    return result;
+}
+*/
+
+
+
+
+
