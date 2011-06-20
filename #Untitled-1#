@@ -1,0 +1,8 @@
+		pstr = "time:" + i  
+			+ "connected ch0:"	+ connectArray[i*14 ]
+				+","	+ connectArray[i*14 +1] 
+ 				+","	+ connectArray[i*14 +2]
+				+ " to "
+				+ connectArray[i*14 ]
+				+","	+ connectArray[i*14 +1] 
+ 				+","	+ connectArray[i*14 +2];

@@ -34,7 +34,82 @@ var G_GID = 0;
 var Rtitle = "ch1";	//ch1
 var G_RID = 1;
 
+macro "Load DV file"{
+	requires("1.43d");
+	OpenDVch(1, "none");
+}
 
+macro "Load DV file and Preprocess"{
+	requires("1.43d");
+	path = OpenDVch(0, "none");
+	run("Preprocess ChromosomeDots");
+	OpenDVch(1, path);
+	run("Preprocess ChromosomeDots");
+	
+}
+
+
+function OpenDVch(ch, gpath){
+	run("Bio-Formats Macro Extensions");
+	if (gpath == "none")
+		path = File.openDialog("Select a DV File");
+	name = File.getName(path);
+	dir = File.getParent(path);	
+	//DAPIch = getNumber("DAPI ch=?", 0);
+	//FISHch = getNumber("FISH ch=?", 1);
+
+	q = File.separator; //090912
+
+	//workdir = getDirectory("Choose a work space directory to save resulting files");
+
+	Ext.setId(path);
+	Ext.getSeriesCount(seriesCount);
+	Ext.getCurrentFile(file);
+	Ext.setSeries(0);
+	Ext.getSeriesName(seriesName);
+	Ext.getSizeT(sizeT);
+	Ext.getSizeZ(sizeZ);
+	Ext.getSizeC(sizeC);
+	print(sizeT, sizeZ, sizeC);
+
+	XscaleKey = "X element length (in um)"; //seriesName+ " - dblVoxelX - Voxel-Width";
+	YscaleKey = "Y element length (in um)"; // seriesName+ " - dblVoxelY - Voxel-Height";
+	ZscaleKey =  "Z element length (in um)"; //seriesName+ " - dblVoxelZ - Voxel-Depth";
+	
+	Ext.getMetadataValue(XscaleKey, xscale);
+	Ext.getMetadataValue(YscaleKey, yscale);
+	Ext.getMetadataValue(ZscaleKey, zscale);
+	print(xscale, yscale, zscale);
+
+	setBatchMode(true);
+	for (j=0; j<sizeT; j++){
+		for (i=0; i<sizeZ; i++){
+			currentZch0 = j*sizeZ+i*sizeC;
+			Ext.openImage(""+name +"ch"+ch, currentZch0+ch);
+			slicelabel = getMetadata("Label");
+			if (currentZch0 == 0)
+				stackID=getImageID();
+			else	{
+				run("Copy");
+				close;
+				selectImage(stackID);
+				run("Add Slice");
+				run("Paste");
+				
+			}
+			setMetadata("Label", "c="+ch+" z="+i + " t=" + j);
+		}
+	}	
+	Stack.setDimensions(1, sizeZ, sizeT);
+	setVoxelSize(xscale, yscale, zscale, "um");
+	Ext.close();
+	setBatchMode(false);
+
+	print("File:"+ file);
+	print("series total number" + seriesCount);
+	return path;
+
+}
 
 //======== scales, settings =======
 macro "settings"{}
