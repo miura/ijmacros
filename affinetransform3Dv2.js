@@ -1,7 +1,10 @@
-// according to advice from Stephan Saalfeld@mpicbg
-// http://groups.google.com/group/fiji-users/browse_thread/thread/4e70cd4caf96d180
-// created: 201107120 by Kota Miura
+//  affinetransform3D.js
+//  Created: 201107120 by Kota Miura (CMCI, EMBL miura@embl.de)
+//
 // 	Collaborater: Oleg
+//
+// written according to the advice from Stephan Saalfeld@mpicbg
+// http://groups.google.com/group/fiji-users/browse_thread/thread/4e70cd4caf96d180
 // TODO try using moving least square. 
 // http://pacific.mpi-cbg.de/javadoc/mpicbg/models/MovingLeastSquaresTransform.html
 // http://www.ini.uzh.ch/~acardona/api/mpicbg/trakem2/transform/MovingLeastSquaresTransform.html
@@ -10,11 +13,11 @@ mpimodel.importPackage(Packages.mpicbg.models);
 importPackage(Packages.java.util);
 var mpistack = new JavaImporter();
 mpistack.importPackage(Packages.mpicbg.ij.stack);
+/*
 var albertT = new JavaImporter();
 albertT.importPackage(Packages.mpicbg.trakem2.transform);
-
 mst = albertT.MovingLeastSquaresTransform();
-
+*/
 pointPairs = new ArrayList();
 p11 = [1, 0, 0];
 p12 = [0, 1, 0];
@@ -44,14 +47,15 @@ modelM.fit( pointPairs );
 	for (i in mat) IJ.log(mat[i].toString());
 	for (i in fittedMA) IJ.log(fittedMA[i].toString());
 
+/* test part
 try {
 	mst.setMatches( pointPairs );
 } catch (err){
 	IJ.log('An error has occurred: '+err.message); 
 }
 IJ.log(mst.toDataString());
+*/
 
-/*
 mapping = mpistack.InverseTransformMapping( modelM );
 
 imp = IJ.getImage();
@@ -73,7 +77,10 @@ for ( s = 0; s < dd; ++s ) {
 impout = ImagePlus("out", target);
 impout.show();
 
-*/
+function ReCalcStackSize(trasM, minA, maxA, imp){
+  
+}
+
 
 
 
