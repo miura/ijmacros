@@ -25,33 +25,12 @@ albertT.importPackage(Packages.mpicbg.trakem2.transform);
 mst = albertT.MovingLeastSquaresTransform();
 */
 pointPairs = new ArrayList();
-p11 = [1, 0, 0];
-p12 = [0, 1, 0];
-
-p21 = [0, 1, 0];
-p22 = [0, 0, 1];
-
-p31 = [0, 0, 1];
-p32 = [1, 0, 0];
-
-p41 = [0.5, 0, 0];
-p42 = [0, 0.5, 0];
-
-pointPairs.add(mpimodel.PointMatch(mpimodel.Point(p11), mpimodel.Point(p12)));
-pointPairs.add(mpimodel.PointMatch(mpimodel.Point(p21), mpimodel.Point(p22)));
-pointPairs.add(mpimodel.PointMatch(mpimodel.Point(p31), mpimodel.Point(p32)));
-pointPairs.add(mpimodel.PointMatch(mpimodel.Point(p41), mpimodel.Point(p42)));
-
-IJ.log(pointPairs.toString());
+testFillPoints(pointPairs);
 
 //LS fitting
 modelM = new trakmodel.AffineModel3D();	//use Albert's class, for printing out matrix
 modelM.fit( pointPairs );
-	//just to verify
-	mat = new Array(12);
-	fittedMA = modelM.getMatrix(mat);
-	for (i in mat) IJ.log(mat[i].toString());
-	for (i in fittedMA) IJ.log(fittedMA[i].toString());
+IJ.log(modelM.toDataString());
 
 /* test part
 try {
@@ -88,13 +67,11 @@ ww = destsizeA[0];
 hh = destsizeA[1];
 dd = destsizeA[2];
 
-for (i in minA)
-IJ.log(minA[i]);
-for (i in maxA)
-IJ.log(maxA[i]);
+for (i in minA) IJ.log(minA[i]);
+for (i in maxA) IJ.log(maxA[i]);
+
 outstr = "after: ";
-for (var i = 0; i < minA.length; i++)
-  outstr = outstr + destsizeA[i] + ",";
+for (i in minA) outstr = outstr + destsizeA[i] + ",";
 IJ.log(outstr);
 
 ReCalcOffset(modelM, minA);
@@ -119,6 +96,26 @@ for ( s = 0; s < dd; ++s ) {
 impout = ImagePlus("out", target);
 impout.show();
 
+
+function testFillPoints(pointPairs) {
+  p11 = [1, 0, 0];
+  p12 = [0, 1, 0];
+
+  p21 = [0, 1, 0];
+  p22 = [0, 0, 1];
+
+  p31 = [0, 0, 1];
+  p32 = [1, 0, 0];
+
+  p41 = [0.5, 0, 0];
+  p42 = [0, 0.5, 0];
+
+  pointPairs.add(mpimodel.PointMatch(mpimodel.Point(p11), mpimodel.Point(p12)));
+  pointPairs.add(mpimodel.PointMatch(mpimodel.Point(p21), mpimodel.Point(p22)));
+  pointPairs.add(mpimodel.PointMatch(mpimodel.Point(p31), mpimodel.Point(p32)));
+  pointPairs.add(mpimodel.PointMatch(mpimodel.Point(p41), mpimodel.Point(p42)));
+  IJ.log(pointPairs.toString());
+}
 
 function ReCalcStackSize(transM, minA, maxA){
   transM.estimateBounds(minA, maxA);
