@@ -8,22 +8,22 @@
 // TODO try using moving least square. 
 // http://pacific.mpi-cbg.de/javadoc/mpicbg/models/MovingLeastSquaresTransform.html
 // http://www.ini.uzh.ch/~acardona/api/mpicbg/trakem2/transform/MovingLeastSquaresTransform.html
-var mpimodel = new JavaImporter();
-mpimodel.importPackage(Packages.mpicbg.models);
 importPackage(Packages.java.util);
+var mpimodel  = new JavaImporter();
 var trakmodel = new JavaImporter();
+var mpistack  = new JavaImporter();
+var jarray    = new JavaImporter();
+mpimodel.importPackage(Packages.mpicbg.models);
 trakmodel.importPackage(Packages.mpicbg.trakem2.transform);
-var mpistack = new JavaImporter();
 mpistack.importPackage(Packages.mpicbg.ij.stack);
-var jarray = new JavaImporter();
 jarray.importPackage(Packages.java.lang.reflect);
 
 
 /*
-var albertT = new JavaImporter();
-albertT.importPackage(Packages.mpicbg.trakem2.transform);
-mst = albertT.MovingLeastSquaresTransform();
-*/
+   var albertT = new JavaImporter();
+   albertT.importPackage(Packages.mpicbg.trakem2.transform);
+   mst = albertT.MovingLeastSquaresTransform();
+   */
 pointPairs = new ArrayList();
 testFillPoints(pointPairs);
 
@@ -33,20 +33,20 @@ modelM.fit( pointPairs );
 IJ.log(modelM.toDataString());
 
 /* test part
-try {
-	mst.setMatches( pointPairs );
-} catch (err){
-	IJ.log('An error has occurred: '+err.message); 
-}
-IJ.log(mst.toDataString());
-*/
+   try {
+   mst.setMatches( pointPairs );
+   } catch (err){
+   IJ.log('An error has occurred: '+err.message); 
+   }
+   IJ.log(mst.toDataString());
+   */
 
 // --- preparing target stack size, offsets ---
 
 imp = IJ.getImage();	// move this later to the beginning to check if there is indeed an image stack opened
-ww = imp.getWidth();
-hh = imp.getHeight();
-dd = imp.getImageStackSize();
+ww  = imp.getWidth();
+hh  = imp.getHeight();
+dd  = imp.getImageStackSize();
 
 // need to use java native array for estimateBounds() method.
 minA = jarray.Array.newInstance(java.lang.Float.TYPE, 3);
@@ -84,14 +84,14 @@ mapping = mpistack.InverseTransformMapping( modelM );
 ip =  imp.getStack().getProcessor( 1 ).createProcessor( 1, 1 ); 
 target = new ImageStack(ww, hh);
 for ( s = 0; s < dd; ++s ) { 
-	ip = ip.createProcessor( ww, hh ); 
- 	mapping.setSlice( s ); 
-	try { 
-		mapping.mapInterpolated( imp.getStack(), ip ); 
-	} catch ( err ) { 
-		alert('An error has occurred: '+err.message); 
-  	} 
-	target.addSlice( "", ip ); 
+  ip = ip.createProcessor( ww, hh ); 
+  mapping.setSlice( s ); 
+  try { 
+    mapping.mapInterpolated( imp.getStack(), ip ); 
+  } catch ( err ) { 
+    alert('An error has occurred: '+err.message); 
+  } 
+  target.addSlice( "", ip ); 
 }
 impout = ImagePlus("out", target);
 impout.show();
