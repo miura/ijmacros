@@ -9,6 +9,8 @@
 // a2: Diffusion limiter along maximal variations
 // dt: timestep
 // edge: edge threshold height
+//
+// Generic: plugin automatically makes a new frame. 
 
 var optionsA = newArray("number", "smoothings", "keep", "a1", "a2","dt","edge");
 var defalutvaluesA = newArray(20, 1, 20, 0.50, 0.90, 20, 5); //default values
