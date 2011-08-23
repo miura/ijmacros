@@ -10,7 +10,7 @@ IJ.run(blurrimp, "Gaussian Blur...", "sigma=15 stack");
 
 //subtract the blurred from the original
 ic = new ImageCalculator();
-for (i=1; i<=imp.getStackSize(); i++){
+for (var i=1; i<=imp.getStackSize(); i++){
 	imp.setSlice(i);
 	blurrimp.setSlice(i);
 	ic.run("Subtract", imp, blurrimp);

@@ -67,11 +67,11 @@ ww = destsizeA[0];
 hh = destsizeA[1];
 dd = destsizeA[2];
 
-for (i in minA) IJ.log(minA[i]);
-for (i in maxA) IJ.log(maxA[i]);
+for (var i in minA) IJ.log(minA[i]);
+for (var i in maxA) IJ.log(maxA[i]);
 
 outstr = "after: ";
-for (i in minA) outstr = outstr + destsizeA[i] + ",";
+for (var i in minA) outstr = outstr + destsizeA[i] + ",";
 IJ.log(outstr);
 
 ReCalcOffset(modelM, minA);
@@ -83,7 +83,7 @@ mapping = mpistack.InverseTransformMapping( modelM );
 
 ip =  imp.getStack().getProcessor( 1 ).createProcessor( 1, 1 ); 
 target = new ImageStack(ww, hh);
-for ( s = 0; s < dd; ++s ) { 
+for ( var s = 0; s < dd; ++s ) { 
   ip = ip.createProcessor( ww, hh ); 
   mapping.setSlice( s ); 
   try { 
@@ -98,17 +98,17 @@ impout.show();
 
 
 function testFillPoints(pointPairs) {
-  p11 = [1, 0, 0];
-  p12 = [0, 1, 0];
+  var p11 = [1, 0, 0];
+  var p12 = [0, 1, 0];
 
-  p21 = [0, 1, 0];
-  p22 = [0, 0, 1];
+  var p21 = [0, 1, 0];
+  var p22 = [0, 0, 1];
 
-  p31 = [0, 0, 1];
-  p32 = [1, 0, 0];
+  var p31 = [0, 0, 1];
+  var p32 = [1, 0, 0];
 
-  p41 = [0.5, 0, 0];
-  p42 = [0, 0.5, 0];
+  var p41 = [0.5, 0, 0];
+  var p42 = [0, 0.5, 0];
 
   pointPairs.add(mpimodel.PointMatch(mpimodel.Point(p11), mpimodel.Point(p12)));
   pointPairs.add(mpimodel.PointMatch(mpimodel.Point(p21), mpimodel.Point(p22)));
@@ -119,15 +119,15 @@ function testFillPoints(pointPairs) {
 
 function ReCalcStackSize(transM, minA, maxA){
   transM.estimateBounds(minA, maxA);
-  newsizeA = [0.0, 0.0, 0.0];  
-  for (i in newsizeA) 
+  var newsizeA = [0.0, 0.0, 0.0];  
+  for (var i in newsizeA) 
     newsizeA[i] = Math.ceil(maxA[i] - minA[i]);
   return newsizeA;
 }
 
 function ReCalcOffset(transM, minA){
-  shift = new mpimodel.TranslationModel3D();
-  shift.set( -1*minA[0], -1*minA[1], -1*minA[2] );
+  var shift = new mpimodel.TranslationModel3D();
+  var shift.set( -1*minA[0], -1*minA[1], -1*minA[2] );
   transM.preConcatenate(shift);
 }
 

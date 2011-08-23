@@ -8,7 +8,7 @@
 // 20110822 Kota Miura (miura@embl.de) 
 
 importPackage(Packages.util.opencsv);
-importPackage(Packages.java.io);
+importPackage(java.io);
 
 //path = "/Users/miura/Dropbox/data"; //unix
 path = "C:/dropbox/My\ Dropbox/data"; //win
@@ -30,11 +30,11 @@ for (var i=0; i<filesA.length; i++) {
 // reads out 5th column in the CSV file
 // using readALL method
 function readCSV(filepath) {
-	reader = new CSVReader(new FileReader(filepath), " ");
-	ls = reader.readAll();
-	it = ls.iterator(); 
+	var reader = new CSVReader(new FileReader(filepath), " ");
+	var ls = reader.readAll();
+	var it = ls.iterator(); 
 	while (it.hasNext()){
-		carray = it.next();
+		var carray = it.next();
 		IJ.log(carray[4]); 
 	}
 }
@@ -42,7 +42,7 @@ function readCSV(filepath) {
 // reads out 5th column in the CSV file
 // using readNext method, output is similar to readAll
 function readCSVbyLine(filepath) {
-	reader = new CSVReader(new FileReader(filepath), " ");
+	var reader = new CSVReader(new FileReader(filepath), " ");
 	while ((nextLine = reader.readNext()) != null) {
         	// nextLine[] is an array of values from the line
         	IJ.log(nextLine[4]);
