@@ -21,6 +21,7 @@ mpistack.importPackage(Packages.mpicbg.ij.stack);
 jarray.importPackage(Packages.java.lang.reflect);
 jio.importPackage(Packages.java.io);
 importClass(Packages.ij.util.Tools);
+importPackage(Packages.util.opencsv);
 
 /*
    var albertT = new JavaImporter();
@@ -34,7 +35,7 @@ var datafilepath = argA[1];
 
 pointPairs = new ArrayList();
 //testFillPoints(pointPairs);
-FillPointsfromFile(pointPairs, filepath);
+FillPointsfromFile(pointPairs, datafilepath);
 
 //LS fitting
 modelM = new trakmodel.AffineModel3D();	//use Albert's class, for printing out matrix
@@ -171,7 +172,7 @@ function ReCalcStackSize(transM, minA, maxA){
 
 function ReCalcOffset(transM, minA){
   var shift = new mpimodel.TranslationModel3D();
-  var shift.set( -1*minA[0], -1*minA[1], -1*minA[2] );
+  shift.set( -1*minA[0], -1*minA[1], -1*minA[2] );
   transM.preConcatenate(shift);
 }
 
