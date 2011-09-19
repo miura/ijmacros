@@ -30,55 +30,67 @@ od = new OpenDialog("Choose Data File", null);
 srcdir = od.getDirectory();
 filename = od.getFileName();
 fullpath = java.lang.String(srcdir+filename);
-IJ.log(fullpath.getClass());
-pntA = PointsfromFile(fullpath);
-tt = pntA[0]
-IJ.log(tt[1]);
-/*
+//IJ.log(fullpath.getClass());
 
-for (i = 0; i < strA.length; i++){
-	lineA = split(strA[i], "\t");
-//	print(lineA[0]);
-	x1 = parseFloat(lineA[0]);
-	y1 = parseFloat(lineA[1]);
-	z1 = parseFloat(lineA[2]);
-	x2 = parseFloat(lineA[3]);
-	y2 = parseFloat(lineA[4]);
-	z2 = parseFloat(lineA[5]);
-	dataA = getLine(imp, x1, y1, z1, x2, y2, z2, xyscale, zscale);
-	datastr = "";
-	for (j = 0; j<dataA.length; j++){
-		if (j==0)
-			datastr = datastr + GXinc*j + "\t" + dataA[j];
-		else
-			datastr = datastr + "\n" + GXinc*j + "\t" + dataA[j];					
+pntA = PointsfromFile(fullpath);
+
+IJ.log(pntA[0][1].getX());
+IJ.log(pntA[0].length);
+IJ.log(pntA.length);
+
+imp = IJ.getImage();
+get3Dprofile(imp, pntA);
+
+function get3Dprofile(imp, vecA){
+	var rt = new ResultsTable();
+	for (var i = 0; i < vecA.length; i++){
+		var x1 = vecA[i][0].getX();
+		var y1 = vecA[i][0].getY();
+		var z1 = vecA[i][0].getZ();
+		var x2 = vecA[i][1].getX();
+		var y2 = vecA[i][1].getY();
+		var z2 = vecA[i][1].getZ();
+		var dataA = getLine(imp, x1, y1, z1, x2, y2, z2, xyscale, zscale);
+		var datastr = "";
+		for (var j = 0; j<dataA.length; j++){
+			if (j==0)
+				datastr = datastr + GXinc*j + "\t" + dataA[j];
+			else
+				datastr = datastr + "\n" + GXinc*j + "\t" + dataA[j];					
+		}
+		IJ.log("sample "+ i +" pnt("+x1+ y1+ z1+") - ("+ x2+ y2+ z2);
+		IJ.log(datastr);
+		for (var j = 0; j < dataA.length; j ++){
+			if (rt.getCounter() <= j) rt.incrementCounter();
+			rt.setValue("Profile"+IJ.pad(i, 2) + "_x", j, GXinc*j);
+			rt.setValue("Profile"+IJ.pad(i, 2) + "_int", j, dataA[j]);
+		}
+		
+		//outtitle = "profile_" + i + ".txt";
+		//File.saveString(datastr, curdir + outtitle);
 	}
-	print("sample",i,
-		"pnt(",x1, y1, z1,") - (", x2, y2, z2);
-	print(datastr);
-	for (j = 0; j < dataA.length; j ++){
-		setResult("Profile"+IJ.pad(i, 2) + "_x", j, GXinc*j);
-		setResult("Profile"+IJ.pad(i, 2) + "_int", j, dataA[j]);
-	}
-	outtitle = "profile_" + i + ".txt";
-	File.saveString(datastr, curdir + outtitle);
+	//rt.updateResults();
+	rt.show("Profile3D");
 }
 
-IJ.renameResults("Profile3D");
-*/
+//
+
 
 // reads out 5th column in the CSV file
 // using readALL method
-function readCSV(filepath) {
-    var reader = new CSVReader(new FileReader(filepath), " ");
+
+function readCSV(filepath, dataA) {
+    var reader = new CSVReader(new FileReader(filepath), "\t");
     var ls = reader.readAll();
     var it = ls.iterator(); 
     while (it.hasNext()){
         var carray = it.next();
-        IJ.log(carray[4]); 
+        dataA.add(carray);
+        //IJ.log(carray[4]); 
     }
 }
 
+//converts CVS file to a two element array of two Vecotr 3D arrays. 
 function PointsfromFile(datafilepath){
 	var dataA = new ArrayList();
 	var pointsA = [];	//javascript array
@@ -89,18 +101,13 @@ function PointsfromFile(datafilepath){
 	} else {
 		IJ.log("problem reading: " + datafilepath);
 	}
-
-
 	var datait = dataA.iterator();
 	while (datait.hasNext()){
 		//IJ.log(datait.next()[0]);
 		var carray = datait.next();
-		//var points = [carray[0], carray[1], carray[2], carray[3], carray[4], carray[5]];
-		//pointsA.push(points);
-		//pointsA.push(p2);
-		var p1 = Vector3D(Double.parseDouble(carray[0]), Double.parseDouble(carray[1]), Double.parseDouble(carray[2]));
-//		var p2 = Vector3D(carray[3], carray[4], carray[5]);
-		pointsA.push(p1);
+		var p1 = Vector3D(carray[0], carray[1], carray[2]);
+		var p2 = Vector3D(carray[3], carray[4], carray[5]);
+		pointsA.push([p1, p2]);
 	}
 	IJ.log("=== point pairs loaded from " + datafilepath);	
 	return pointsA; 		  
@@ -135,8 +142,11 @@ function getLine(imp, x1, y1, z1, x2, y2, z2, xys, zs) {
 	var zincpix = zinc/zs; //unit = pixel
 
 	GXinc = Math.sqrt(xinc*xinc + yinc*yinc + zinc*zinc); //20110714
-	getDimensions(width, height, channels, slices, framess);	
-	if (!((xinc==0&&n2D==height) || (yinc==0&&n2D==width) || (zinc==0&&nz==slices)))
+	//getDimensions(width, height, channels, slices, framess);
+	width = imp.getWidth();
+	height = imp.getHeight();
+	slices = imp.getStackSize();		
+	if (!((xinc==0&&n2D==width) || (yinc==0&&n2D==height) || (zinc==0&&nz==slices)))
 		npixXY++;
 	//data = newArray(npixXY);
 	data = [];
@@ -162,14 +172,4 @@ function getLine(imp, x1, y1, z1, x2, y2, z2, xys, zs) {
 		}
 	}
 	return data;
-}
-function readCSV(filepath, dataA) {
-    var reader = new CSVReader(new FileReader(filepath), ",");
-    var ls = reader.readAll();
-    var it = ls.iterator(); 
-    while (it.hasNext()){
-        var carray = it.next();
-        dataA.add(carray);
-        //IJ.log(carray[4]); 
-    }
 }
