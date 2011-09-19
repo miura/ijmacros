@@ -14,8 +14,8 @@ dd = 31;
 var imp = IJ.createImage("test", "8-bit Black", ww, hh, dd);
 
 var xyscale = 0.056; // um/pixel
-//var zscale = 0.7;    // um/pixel
-var zscale = 0.056;    // um/pixel
+var zscale = 0.7;    // um/pixel
+//var zscale = 0.056;    // um/pixel
 var zfactor =1;
 var interpolate = 0;
 var GXinc = 1;
@@ -39,35 +39,18 @@ IJ.log("pntA length " + pntA.length);
 voxlesA = realpos2voxelpos(pntA, xyscale, zscale);
 IJ.log("voxlesA length " + voxlesA.length);
 
-
 for (var i = 0; i < voxlesA.length; i++){
 	var vpoint = voxlesA[i];
-	IJ.log("position: " + vpoint.getX() + ", "+ vpoint.getY() + ", "+ vpoint.getZ());
+//	IJ.log("position: " + vpoint.getX() + ", "+ vpoint.getY() + ", "+ vpoint.getZ());
 	if ((vpoint.getZ() >= 1) && (vpoint.getZ() <= dd)){
-		IJ.log("... within the stack");
 		var ip = imp.getStack().getProcessor(vpoint.getZ());
-		ip.putPixel(vpoint.getX(), vpoint.getY(), 255);	
-	} else {
-		IJ.log("... outside stack");
-	}
-}
-/*
-for (var i = 0; i < pntA.length; i++){
-	var vpoint = pntA[i];
-	IJ.log("position:" + vpoint.getX() + ", "+ vpoint.getY() + ", "+ vpoint.getZ() + ", ");
-	if ((vpoint.getZ() > 0) && (vpoint.getZ() < dds)){
-		IJ.log("... within the stack");
-		var xpos = Math.round(vpoint.getX() / xyscale);
-		var ypos = Math.round(vpoint.getY() / xyscale);		
-		var zpos = Math.round(vpoint.getZ() / zscale) + 1;
-		var ip = imp.getStack().getProcessor(zpos);
-		ip.putPixel(xpos, ypos, 255);	
-	} else {
-		IJ.log("... outside stack");
-	}
-}
+/*		this is for checking if redundant pixels are listed
+		var pixval =  ip.getPixelValue(vpoint.getX(), vpoint.getY()); 
+		ip.putPixel(vpoint.getX(), vpoint.getY(), pixval+1);	
 */
-
+		ip.putPixel(vpoint.getX(), vpoint.getY(), 255);
+	}
+}
 
 imp.show();
 
@@ -105,9 +88,9 @@ function realpos2voxelpos(vpointA, xys, zs){
 //	xys: xyscale, for incrementing the scan
 function return2Ddisc(vs, vse, r, xys){
 	//*** from here, Wani's algorithm ***
+
 	//generate a vector va on disc, centered at the origin (0,0,0).
-	// already normalized
-	var vaN = vse.orthogonal();
+	var vaN = vse.orthogonal(); 	// returned vector is already normalized
 
 	IJ.log("starting point x0: " + vs.getX() + "," + + vs.getY() + "," + vs.getZ());
 
@@ -123,20 +106,10 @@ function return2Ddisc(vs, vse, r, xys){
 	for (var j = 0; j < r*2 + 1; j += xys){
 		 for (var i = 0; i < r*2 + 1; i += xys){
 		 	var vscan = new Vector3D(1, vbase, i, vaN, j, vbN);
-//		 	IJ.log("" + i + ", " + j);	 	
 		 	if (vscan.getNorm() < r){
-		 		IJ.log("... ... on the disk");
 		 		var vpoint = new Vector3D(1, vs, 1, vscan);
-//				if ((vpoint.getZ()>= 0) && (vpoint.getZ() < dd)){
-					vpointA.push(vpoint);
-//				ip = imp.getStack().getProcessor(vpoint.getZ()+1);
-//				ip.putPixel(vpoint.getX(), vpoint.getY(), 255);
-//					IJ.log("... ... plotted");
-//				} else 
-//					IJ.log("... ... outside stack");	 		 
-		 	} else {
-		 		IJ.log("... ... outside disk");
-		 	}
+				vpointA.push(vpoint);
+		 	} 
 		 }
 	}
 	return vpointA;

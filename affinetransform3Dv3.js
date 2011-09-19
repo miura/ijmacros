@@ -176,6 +176,16 @@ function ReCalcOffset(transM, minA){
   transM.preConcatenate(shift);
 }
 
+function readCSV(filepath, dataA) {
+    var reader = new CSVReader(new FileReader(filepath), ",");
+    var ls = reader.readAll();
+    var it = ls.iterator(); 
+    while (it.hasNext()){
+        var carray = it.next();
+        dataA.add(carray);
+        //IJ.log(carray[4]); 
+    }
+}
 
 
 
