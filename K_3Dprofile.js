@@ -50,7 +50,8 @@ function get3Dprofile(imp, vecA){
 		var x2 = vecA[i][1].getX();
 		var y2 = vecA[i][1].getY();
 		var z2 = vecA[i][1].getZ();
-		var dataA = getLine(imp, x1, y1, z1, x2, y2, z2, xyscale, zscale);
+		//var dataA = getLine(imp, x1, y1, z1, x2, y2, z2, xyscale, zscale);
+		var dataA = getLineVec(imp, vecA[i][0], vecA[i][1], xyscale, zscale);
 		var datastr = "";
 		for (var j = 0; j<dataA.length; j++){
 			if (j==0)
@@ -113,6 +114,49 @@ function PointsfromFile(datafilepath){
 	return pointsA; 		  
 }
 
+//updated version with apache math Vector3D
+// vos: starting point position vector
+// voe: end point position vector
+function getLineVec(imp, vos, voe, xys, zs) {
+	vse = new Vector3D(1, voe, 1, vos.negate());
+	var n = vse.getNorm();  //real distance between two points
+	var npixXY = Math.round(n/xys); //this will be the number of sampling points between two positions
+		
+	var incVec = new Vector3D(1/npixXY, vse);	//incremental vector
+	//GXinc = Math.sqrt(xinc*xinc + yinc*yinc + zinc*zinc); //20110714
+	GXinc = incVec.getNorm(); //20110714
+
+	//getDimensions(width, height, channels, slices, framess);
+	width = imp.getWidth();
+	height = imp.getHeight();
+	slices = imp.getStackSize();
+/*			
+	if (!((xinc==0&&n2D==width) || (yinc==0&&n2D==height) || (zinc==0&&nz==slices)))
+		npixXY++;
+*/		
+	data = [];
+	if (interpolate) {
+/*			for (int i=0; i<n; i++) {
+			data[i] = getInterpolatedValue(rx, ry);
+			rx += xinc;
+			ry += yinc;
+		}
+*/	} else {
+		var ip;
+		for (var i=0; i<=npixXY; i+=1) {
+			var voss = new Vector3D(1, vos, i/npixXY, vse);
+			//setSlice(floor(rz));
+			var zcoord = Math.floor(voss.getZ()/zs) + 1; //zposiiton in slice (>=1)
+			ip = imp.getStack().getProcessor(zcoord);
+			//data[i] = ip.getPixel((rx+0.5), (ry+0.5));
+			var xcoord = Math.round(voss.getX()/xys);
+			var ycoord = Math.round(voss.getY()/xys);
+			//data.push(ip.getPixel((rx+0.5), (ry+0.5)));
+			data.push(ip.getPixel(xcoord, ycoord));
+		}
+	}
+	return data;
+}
 
 /*	originally taken from imageprocessor.java in ImageJ
 	modified for measurements in 3D stack. 
@@ -126,6 +170,7 @@ function PointsfromFile(datafilepath){
 /*  x, y, z values are in real scale
  *  
  */
+ 
 function getLine(imp, x1, y1, z1, x2, y2, z2, xys, zs) {
 	var dx = x2-x1;
 	var dy = y2-y1;
