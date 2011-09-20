@@ -1,8 +1,16 @@
 /* 3D profile betweeen two points
  * 
  original macro converted to javascript  
+ Kota Miura (miura@embl.de)
+ 20110920 added with "wide" profile measurements
+
+ requirements: apache commons math 3.0< (update to the latest Fiji)
  */
 
+// to measure with certain width, change here to none-zero value. (in real scale)
+var Gradius = 0.1;
+
+//importing libraries
 importClass(Packages.org.apache.commons.math.geometry.euclidean.threed.Vector3D);
 importClass(Packages.org.apache.commons.math.stat.descriptive.DescriptiveStatistics);
 importPackage(Packages.util.opencsv);
@@ -11,21 +19,16 @@ importPackage(Packages.java.io);
 importPackage(Packages.java.util);
 importClass(Packages.ij.util.Tools);
 
-//scale should be set manuallyu
+//scale should be set manually
 var xyscale = 0.056; //nm/pixel
 var zscale = 0.7; 
 var zfactor =1;
 var interpolate = 0;
 var GXinc = 1;
+
+
+
 /* x, y, z input are in real scale. 
- */
-
-/*
-str = File.openAsString("");
-curdir = File.directory;
-
-newstr = replace(str, ",", ".");
-strA = split(newstr, "\n");
 */
 od = new OpenDialog("Choose Data File", null);
 srcdir = od.getDirectory();
@@ -45,8 +48,10 @@ var width = imp.getWidth();
 var height = imp.getHeight();
 var slices = imp.getStackSize();
 	
-//get3Dprofile(imp, pntA);
-get3DprofileWide(imp, pntA, 0.1);
+if (Gradius == 0) 
+	get3Dprofile(imp, pntA);
+else
+	get3DprofileWide(imp, pntA, Gradius);
 
 function get3Dprofile(imp, vecA){
 	var rt = new ResultsTable();
@@ -83,23 +88,11 @@ function get3Dprofile(imp, vecA){
 
 function get3DprofileWide(imp, vecA, radius){
 	var rt = new ResultsTable();
-	//for (var i = 0; i < vecA.length; i++){
-	for (var i = 0; i < 1; i++){		//test
+	for (var i = 0; i < vecA.length; i++){
+	//for (var i = 0; i < 1; i++){		//test
 		//var dataA = getLineVec(imp, vecA[i][0], vecA[i][1], xyscale, zscale);
-		
 		//returned value is an array of disc stats objects
 		var dataA = getLineVecWide(imp, vecA[i][0], vecA[i][1], xyscale, zscale, radius); 
-/*
-		var datastr = "";
-		for (var j = 0; j<dataA.length; j++){
-			if (j==0)
-				datastr = datastr + GXinc*j + "\t" + dataA[j];
-			else
-				datastr = datastr + "\n" + GXinc*j + "\t" + dataA[j];					
-		}
-		IJ.log("sample "+ i +" pnt("+x1+ y1+ z1+") - ("+ x2+ y2+ z2);
-		IJ.log(datastr);
-*/
 		for (var j = 0; j < dataA.length; j ++){
 			if (rt.getCounter() <= j) rt.incrementCounter();
 			rt.setValue("Profile"+IJ.pad(i, 2) + "_x", j, GXinc*j);
@@ -108,10 +101,8 @@ function get3DprofileWide(imp, vecA, radius){
 			rt.setValue("Profile"+IJ.pad(i, 2) + "_std", j, dataA[j].sdint);
 			rt.setValue("Profile"+IJ.pad(i, 2) + "_sx", j, dataA[j].x);
 			rt.setValue("Profile"+IJ.pad(i, 2) + "_sy", j, dataA[j].y);
-			rt.setValue("Profile"+IJ.pad(i, 2) + "_sz", j, dataA[j].z);						
-									
+			rt.setValue("Profile"+IJ.pad(i, 2) + "_sz", j, dataA[j].z);														
 		}
-		
 		//outtitle = "profile_" + i + ".txt";
 		//File.saveString(datastr, curdir + outtitle);
 	}
@@ -119,11 +110,6 @@ function get3DprofileWide(imp, vecA, radius){
 	rt.show("Profile3Dw");
 }
 
-//
-
-
-// reads out 5th column in the CSV file
-// using readALL method
 
 function readCSV(filepath, dataA) {
     var reader = new CSVReader(new FileReader(filepath), "\t");
@@ -241,8 +227,7 @@ function getLineVecWide(imp, vos, voe, xys, zs, radius) {
 					var ip = imp.getStack().getProcessor(cv.getZ());
 					var pixval = ip.getPixel(cv.getX(), cv.getY());										
 					discdataA.push(pixval);
-					IJ.log("pixval " + pixval);
-
+					//IJ.log("pixval " + pixval);
 				} else {
 					IJ.log("...out of stack at " + i + "th sampling point");
 					//discdataA.push(0);
@@ -322,7 +307,7 @@ function realpos2voxelpos(vpointA, xys, zs){
 		var ypos = Math.round(vpoint.getY() / xys);		
 		var zpos = Math.round(vpoint.getZ() / zs) + 1;
 		var cv3 = new Vector3D(xpos, ypos, zpos);
-		IJ.log("disc ... " + xpos +", "+ ypos +", "+ zpos);
+		//IJ.log("disc ... " + xpos +", "+ ypos +", "+ zpos);
 		var flag = 1; 
 		for (var j = 0; j < voxA.length; j ++)
 			if (voxA[j].equals(cv3)) flag = 0;	
@@ -369,13 +354,13 @@ function return2Ddisc(vs, vseOriginal, scale, r, xys){
 		 	} 
 		 }
 	}
-	IJ.log("vse_inc" + vse.getX() + ", "+ vse.getY() + ", "+ vse.getZ() + ", ");
-	IJ.log("vbase" + vbase.getX() + ", "+ vbase.getY() + ", "+ vbase.getZ() + ", ");
+	//IJ.log("vse_inc" + vse.getX() + ", "+ vse.getY() + ", "+ vse.getZ() + ", ");
+	//IJ.log("vbase" + vbase.getX() + ", "+ vbase.getY() + ", "+ vbase.getZ() + ", ");
 	return vpointA;
 }
 
 
-
+//**************** none-vec version, IJ style ******* (faster, as it seems)
 
 /*	originally taken from imageprocessor.java in ImageJ
 	modified for measurements in 3D stack. 
@@ -389,7 +374,7 @@ function return2Ddisc(vs, vseOriginal, scale, r, xys){
 /*  x, y, z values are in real scale
  *  
  */
- 
+
 function getLine(imp, x1, y1, z1, x2, y2, z2, xys, zs) {
 	var dx = x2-x1;
 	var dy = y2-y1;
