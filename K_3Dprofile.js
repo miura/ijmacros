@@ -4,6 +4,7 @@
  */
 
 importClass(Packages.org.apache.commons.math.geometry.euclidean.threed.Vector3D);
+importClass(Packages.org.apache.commons.math.stat.descriptive.DescriptiveStatistics);
 importPackage(Packages.util.opencsv);
 importPackage(Packages.ij.io);
 importPackage(Packages.java.io);
@@ -44,7 +45,8 @@ var width = imp.getWidth();
 var height = imp.getHeight();
 var slices = imp.getStackSize();
 	
-get3Dprofile(imp, pntA);
+//get3Dprofile(imp, pntA);
+get3DprofileWide(imp, pntA, 0.1);
 
 function get3Dprofile(imp, vecA){
 	var rt = new ResultsTable();
@@ -76,7 +78,45 @@ function get3Dprofile(imp, vecA){
 		//File.saveString(datastr, curdir + outtitle);
 	}
 	//rt.updateResults();
-	rt.show("Profile3D");
+	rt.show("Profile3Ds");
+}
+
+function get3DprofileWide(imp, vecA, radius){
+	var rt = new ResultsTable();
+	//for (var i = 0; i < vecA.length; i++){
+	for (var i = 0; i < 1; i++){		//test
+		//var dataA = getLineVec(imp, vecA[i][0], vecA[i][1], xyscale, zscale);
+		
+		//returned value is an array of disc stats objects
+		var dataA = getLineVecWide(imp, vecA[i][0], vecA[i][1], xyscale, zscale, radius); 
+/*
+		var datastr = "";
+		for (var j = 0; j<dataA.length; j++){
+			if (j==0)
+				datastr = datastr + GXinc*j + "\t" + dataA[j];
+			else
+				datastr = datastr + "\n" + GXinc*j + "\t" + dataA[j];					
+		}
+		IJ.log("sample "+ i +" pnt("+x1+ y1+ z1+") - ("+ x2+ y2+ z2);
+		IJ.log(datastr);
+*/
+		for (var j = 0; j < dataA.length; j ++){
+			if (rt.getCounter() <= j) rt.incrementCounter();
+			rt.setValue("Profile"+IJ.pad(i, 2) + "_x", j, GXinc*j);
+			rt.setValue("Profile"+IJ.pad(i, 2) + "_N", j, dataA[j].npnts);
+			rt.setValue("Profile"+IJ.pad(i, 2) + "_int", j, dataA[j].meanint);
+			rt.setValue("Profile"+IJ.pad(i, 2) + "_std", j, dataA[j].sdint);
+			rt.setValue("Profile"+IJ.pad(i, 2) + "_sx", j, dataA[j].x);
+			rt.setValue("Profile"+IJ.pad(i, 2) + "_sy", j, dataA[j].y);
+			rt.setValue("Profile"+IJ.pad(i, 2) + "_sz", j, dataA[j].z);						
+									
+		}
+		
+		//outtitle = "profile_" + i + ".txt";
+		//File.saveString(datastr, curdir + outtitle);
+	}
+	//rt.updateResults();
+	rt.show("Profile3Dw");
 }
 
 //
@@ -160,6 +200,103 @@ function getLineVec(imp, vos, voe, xys, zs) {
 	return data;
 }
 
+//updated version with apache math Vector3D
+// vos: starting point position vector
+// voe: end point position vector
+// a version with certain width in the profile. 
+function getLineVecWide(imp, vos, voe, xys, zs, radius) {
+	vse = new Vector3D(1, voe, 1, vos.negate()); // the profile vector, origined at 0
+	var n = vse.getNorm();  //real distance between two points
+	var npixXY = Math.round(n/xys); //this will be the number of sampling points between two positions
+		
+	var incVec = new Vector3D(1/npixXY, vse);	//incremental vector
+	GXinc = incVec.getNorm(); //20110714
+
+	var width = imp.getWidth();
+	var height = imp.getHeight();
+	var slices = imp.getStackSize();
+	
+	data = [];
+	if (interpolate) {
+/*			for (int i=0; i<n; i++) {
+			data[i] = getInterpolatedValue(rx, ry);
+			rx += xinc;
+			ry += yinc;
+		}
+*/
+	} else {
+		var ip;
+		for (var i=0; i<=npixXY; i+=1) {
+			var discpntA = return2Ddisc(vos, vse, i/npixXY, radius, xys);
+			//IJ.log("... disc points" + discpntA.length);
+			var voxlesA = realpos2voxelpos(discpntA, xys, zs);
+			var discdataA = [];
+			//IJ.log("... voxels:" + voxlesA.length);
+			for(var j = 0; j < voxlesA.length; j++){
+				var cv = voxlesA[j]; //vector3d
+				if (	((cv.getZ() > 0) && (cv.getZ() <= slices))	&&
+				   		((cv.getX() >= 0) && (cv.getX() < width))	&&
+				   		((cv.getY() >= 0) && (cv.getY() < height)) ) 	{
+					//IJ.log("zpos = " + cv.getZ());
+					var ip = imp.getStack().getProcessor(cv.getZ());
+					var pixval = ip.getPixel(cv.getX(), cv.getY());										
+					discdataA.push(pixval);
+					IJ.log("pixval " + pixval);
+
+				} else {
+					IJ.log("...out of stack at " + i + "th sampling point");
+					//discdataA.push(0);
+				}
+			}
+			//IJ.log("discdataA " + discdataA.length);
+			var vinc;
+			if (i != 0)
+				vinc = new Vector3D(1, vos, i/npixXY, vse);
+			else
+				vinc = vos;
+			thisdisc = 	constructDiscStat(vinc, discdataA);	//discO object			
+			data.push(thisdisc);
+		}
+	}
+	return data;
+}
+
+// dA is an instensity array
+// cv is a Vector3D, center of the disc
+// returns a discO, disc object containing intensity stats. 
+function constructDiscStat(cv, dA){
+	var stats = new DescriptiveStatistics();
+
+	// Add the data from the array
+	for(var i = 0; i < dA.length; i++){ 
+        stats.addValue(dA[i]);
+        //IJ.log(dA[i]);
+	}
+
+	var mean = stats.getMean();
+	var std = stats.getStandardDeviation();
+	var total = stats.getSum();
+	IJ.log("...mean int " + mean);
+	IJ.log("... ... std " + std);
+	adisc = new discO(cv.getX(), cv.getY(), cv.getZ(), dA.length, mean, std, total, dA);
+	return adisc;
+}
+
+
+//Object for single node in profile
+// to store statistics
+function discO(x, y, z, npnts, meanint, sdint, totalint, intA){
+	this.x = x;
+	this.y = y;
+	this.z = z;
+	this.npnts = npnts;
+	this.meanint = meanint;
+	this.sdint = sdint;
+	this.totalint = totalint;
+	this.intA = intA;
+}
+
+
 //******************** 2D disc  functions ********************//
 
 
@@ -176,15 +313,16 @@ IJ.log("voxlesA length " + voxlesA.length);
 // at the same time, removes redunduncy.  
 // 	xys: xyscale
 //  zs: zscale
+//	returns javascript array containing Vector3D of voxels
 function realpos2voxelpos(vpointA, xys, zs){
 	voxA = [];
 	for (var i = 0; i < vpointA.length; i++){
-		var vpoint = pntA[i];		
+		var vpoint = vpointA[i];		
 		var xpos = Math.round(vpoint.getX() / xys);
 		var ypos = Math.round(vpoint.getY() / xys);		
 		var zpos = Math.round(vpoint.getZ() / zs) + 1;
 		var cv3 = new Vector3D(xpos, ypos, zpos);
-		IJ.log("" + xpos +", "+ ypos +", "+ zpos);
+		IJ.log("disc ... " + xpos +", "+ ypos +", "+ zpos);
 		var flag = 1; 
 		for (var j = 0; j < voxA.length; j ++)
 			if (voxA[j].equals(cv3)) flag = 0;	
@@ -198,18 +336,24 @@ function realpos2voxelpos(vpointA, xys, zs){
 //	vse: vector between starting and end point of a given profile
 //	r: radius of the disc
 //	xys: xyscale, for incrementing the scan
-function return2Ddisc(vs, vse, r, xys){
+//	returned value is a javascript array with positional Vector3D representing the disc (in real scale)	
+function return2Ddisc(vs, vseOriginal, scale, r, xys){
 	//*** from here, Wani's algorithm ***
-
+	//var vse;
 	//generate a vector va on disc, centered at the origin (0,0,0).
-	var vaN = vse.orthogonal(); 	// returned vector is already normalized
+	var vse = new Vector3D(scale, vseOriginal);
+	if (scale ==0)
+		vse = vseOriginal;
+		
+	var vaN = vse.orthogonal(); 	// for the first point	
 
-	IJ.log("starting point x0: " + vs.getX() + "," + + vs.getY() + "," + vs.getZ());
-
+	//IJ.log("starting point x0: " + vs.getX() + "," + + vs.getY() + "," + vs.getZ());
+	IJ.log(""+scale+ " of profile");
 	//vb, a vector perpendicular to both vse and va
 	var vb = vse.crossProduct(vaN);
 	//normalize vb
 	var vbN = vb.normalize();
+
 
 	//bottom-left corner vector vbase.
 	//vaN and vbN, opposite of each multiplied by radius r and added
@@ -219,11 +363,14 @@ function return2Ddisc(vs, vse, r, xys){
 		 for (var i = 0; i < r*2 + 1; i += xys){
 		 	var vscan = new Vector3D(1, vbase, i, vaN, j, vbN);
 		 	if (vscan.getNorm() < r){
-		 		var vpoint = new Vector3D(1, vs, 1, vscan);
+		 		//var vpoint = new Vector3D(1, vs, 1, vscan);
+		 		var vpoint = new Vector3D(1, vs, 1, vse, 1, vscan);
 				vpointA.push(vpoint);
 		 	} 
 		 }
 	}
+	IJ.log("vse_inc" + vse.getX() + ", "+ vse.getY() + ", "+ vse.getZ() + ", ");
+	IJ.log("vbase" + vbase.getX() + ", "+ vbase.getY() + ", "+ vbase.getZ() + ", ");
 	return vpointA;
 }
 
