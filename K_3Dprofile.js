@@ -39,6 +39,11 @@ IJ.log(pntA[0].length);
 IJ.log(pntA.length);
 
 imp = IJ.getImage();
+
+var width = imp.getWidth();
+var height = imp.getHeight();
+var slices = imp.getStackSize();
+	
 get3Dprofile(imp, pntA);
 
 function get3Dprofile(imp, vecA){
@@ -118,22 +123,17 @@ function PointsfromFile(datafilepath){
 // vos: starting point position vector
 // voe: end point position vector
 function getLineVec(imp, vos, voe, xys, zs) {
-	vse = new Vector3D(1, voe, 1, vos.negate());
+	vse = new Vector3D(1, voe, 1, vos.negate()); // the profile vector, origined at 0
 	var n = vse.getNorm();  //real distance between two points
 	var npixXY = Math.round(n/xys); //this will be the number of sampling points between two positions
 		
 	var incVec = new Vector3D(1/npixXY, vse);	//incremental vector
-	//GXinc = Math.sqrt(xinc*xinc + yinc*yinc + zinc*zinc); //20110714
 	GXinc = incVec.getNorm(); //20110714
 
-	//getDimensions(width, height, channels, slices, framess);
-	width = imp.getWidth();
-	height = imp.getHeight();
-	slices = imp.getStackSize();
-/*			
-	if (!((xinc==0&&n2D==width) || (yinc==0&&n2D==height) || (zinc==0&&nz==slices)))
-		npixXY++;
-*/		
+	var width = imp.getWidth();
+	var height = imp.getHeight();
+	var slices = imp.getStackSize();
+	
 	data = [];
 	if (interpolate) {
 /*			for (int i=0; i<n; i++) {
@@ -141,22 +141,94 @@ function getLineVec(imp, vos, voe, xys, zs) {
 			rx += xinc;
 			ry += yinc;
 		}
-*/	} else {
+*/
+	} else {
 		var ip;
 		for (var i=0; i<=npixXY; i+=1) {
 			var voss = new Vector3D(1, vos, i/npixXY, vse);
-			//setSlice(floor(rz));
-			var zcoord = Math.floor(voss.getZ()/zs) + 1; //zposiiton in slice (>=1)
-			ip = imp.getStack().getProcessor(zcoord);
-			//data[i] = ip.getPixel((rx+0.5), (ry+0.5));
-			var xcoord = Math.round(voss.getX()/xys);
-			var ycoord = Math.round(voss.getY()/xys);
-			//data.push(ip.getPixel((rx+0.5), (ry+0.5)));
-			data.push(ip.getPixel(xcoord, ycoord));
+			var zcoord = Math.floor(voss.getZ()/zs) + 1; //zposiiton in slice (>=1), was 0 before
+			if ((zcoord > 0) && (zcoord <= slices)) {
+				ip = imp.getStack().getProcessor(zcoord);
+				var xcoord = Math.round(voss.getX()/xys);
+				var ycoord = Math.round(voss.getY()/xys);
+				data.push(ip.getPixel(xcoord, ycoord));
+			} else {
+				IJ.log("...out of stack at " + i + "th sampling point");
+			}
 		}
 	}
 	return data;
 }
+
+//******************** 2D disc  functions ********************//
+
+
+/*
+pntA = return2Ddisc(v_os, v_se, radius, xyscale);
+IJ.log("pntA length " + pntA.length);
+
+voxlesA = realpos2voxelpos(pntA, xyscale, zscale);
+IJ.log("voxlesA length " + voxlesA.length);
+*/
+
+// vpointsA is an array of Vector3D in real scale. 
+// converts real scale coordinates to voxel coordinates
+// at the same time, removes redunduncy.  
+// 	xys: xyscale
+//  zs: zscale
+function realpos2voxelpos(vpointA, xys, zs){
+	voxA = [];
+	for (var i = 0; i < vpointA.length; i++){
+		var vpoint = pntA[i];		
+		var xpos = Math.round(vpoint.getX() / xys);
+		var ypos = Math.round(vpoint.getY() / xys);		
+		var zpos = Math.round(vpoint.getZ() / zs) + 1;
+		var cv3 = new Vector3D(xpos, ypos, zpos);
+		IJ.log("" + xpos +", "+ ypos +", "+ zpos);
+		var flag = 1; 
+		for (var j = 0; j < voxA.length; j ++)
+			if (voxA[j].equals(cv3)) flag = 0;	
+		if (flag == 1) voxA.push(cv3);
+	}
+	return voxA;	
+}
+
+//parameters
+//	vs: vector from origin to the starting point of a givien profile
+//	vse: vector between starting and end point of a given profile
+//	r: radius of the disc
+//	xys: xyscale, for incrementing the scan
+function return2Ddisc(vs, vse, r, xys){
+	//*** from here, Wani's algorithm ***
+
+	//generate a vector va on disc, centered at the origin (0,0,0).
+	var vaN = vse.orthogonal(); 	// returned vector is already normalized
+
+	IJ.log("starting point x0: " + vs.getX() + "," + + vs.getY() + "," + vs.getZ());
+
+	//vb, a vector perpendicular to both vse and va
+	var vb = vse.crossProduct(vaN);
+	//normalize vb
+	var vbN = vb.normalize();
+
+	//bottom-left corner vector vbase.
+	//vaN and vbN, opposite of each multiplied by radius r and added
+	var vbase = new Vector3D(r, vaN.negate(), r, vbN.negate());
+	var vpointA = [];
+	for (var j = 0; j < r*2 + 1; j += xys){
+		 for (var i = 0; i < r*2 + 1; i += xys){
+		 	var vscan = new Vector3D(1, vbase, i, vaN, j, vbN);
+		 	if (vscan.getNorm() < r){
+		 		var vpoint = new Vector3D(1, vs, 1, vscan);
+				vpointA.push(vpoint);
+		 	} 
+		 }
+	}
+	return vpointA;
+}
+
+
+
 
 /*	originally taken from imageprocessor.java in ImageJ
 	modified for measurements in 3D stack. 
