@@ -7,7 +7,7 @@
  requirements: apache commons math 3.0< (update to the latest Fiji)
  */
 
-// to measure with certain width, change here to none-zero value. (in real scale)
+//**** to measure with certain width, change here to none-zero value. (in real scale) ****
 var Gradius = 0.1;
 
 //importing libraries
