@@ -4,11 +4,18 @@
  Kota Miura (miura@embl.de)
  20110920 added with "wide" profile measurements
 
+workflow: prepare a tab-delimited data file with 
+a pair of 3D coordinates per line
+(6 numbers per line). Run this script, and 
+in dialog window choose the file, then 3D intensity profile
+in the top-image window will be calculated and shown in the 
+Results table. 
+
  requirements: apache commons math 3.0< (update to the latest Fiji)
  */
 
 //**** to measure with certain width, change here to none-zero value. (in real scale) ****
-var Gradius = 0.1;
+var Gradius = 0;//0.1;
 
 //importing libraries
 importClass(Packages.org.apache.commons.math.geometry.euclidean.threed.Vector3D);
@@ -28,8 +35,7 @@ var GXinc = 1;
 
 
 
-/* x, y, z input are in real scale. 
-*/
+//x, y, z input are in real scale. 
 od = new OpenDialog("Choose Data File", null);
 srcdir = od.getDirectory();
 filename = od.getFileName();
@@ -38,9 +44,8 @@ fullpath = java.lang.String(srcdir+filename);
 
 pntA = PointsfromFile(fullpath);
 
-IJ.log(pntA[0][1].getX());
-IJ.log(pntA[0].length);
-IJ.log(pntA.length);
+//IJ.log(pntA[0][1].getX());
+//IJ.log(pntA.length);
 
 imp = IJ.getImage();
 
