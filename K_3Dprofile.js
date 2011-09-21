@@ -15,7 +15,7 @@ Results table.
  */
 
 //**** to measure with certain width, change here to none-zero value. (in real scale) ****
-var Gradius = 0;//0.1;
+var Gradius = 0.1;
 
 //importing libraries
 importClass(Packages.org.apache.commons.math.geometry.euclidean.threed.Vector3D);
@@ -312,11 +312,14 @@ function realpos2voxelpos(vpointA, xys, zs){
 		var ypos = Math.round(vpoint.getY() / xys);		
 		var zpos = Math.round(vpoint.getZ() / zs) + 1;
 		var cv3 = new Vector3D(xpos, ypos, zpos);
-		//IJ.log("disc ... " + xpos +", "+ ypos +", "+ zpos);
+/* this part eliminates overlapped voxels, but omit this part after taliking with Wani
 		var flag = 1; 
 		for (var j = 0; j < voxA.length; j ++)
 			if (voxA[j].equals(cv3)) flag = 0;	
-		if (flag == 1) voxA.push(cv3);
+		if (flag == 1)
+*/ 
+			voxA.push(cv3);
+		
 	}
 	return voxA;	
 }
