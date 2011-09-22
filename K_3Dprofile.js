@@ -321,8 +321,20 @@ function realpos2voxelpos(vpointA, xys, zs){
 			voxA.push(cv3);
 		
 	}
+	dev_saveDiscPoints(vpointA);
 	return voxA;	
 }
+
+function dev_saveDiscPoints(vpointA){
+	datastr = "";
+	for (var i = 0; i < vpointA.length; i++){
+		var vp = vpointA[i];
+		datastr = datastr + vp.getX() + "\t" + vp.getY() + "\t"+ vp.getZ() + "\n";  
+	}
+	outtitle = "ProfileDiscdata.txt";
+	IJ.saveString(datastr, srcdir + File.separator + outtitle);
+}
+
 
 //parameters
 //	vs: vector from origin to the starting point of a givien profile
