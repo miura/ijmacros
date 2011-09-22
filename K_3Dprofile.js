@@ -33,7 +33,7 @@ var zfactor =1;
 var interpolate = 0;
 var GXinc = 1;
 
-
+Gdiscstr = ""; //to check measured points
 
 //x, y, z input are in real scale. 
 od = new OpenDialog("Choose Data File", null);
@@ -57,6 +57,11 @@ if (Gradius == 0)
 	get3Dprofile(imp, pntA);
 else
 	get3DprofileWide(imp, pntA, Gradius);
+
+//checking the measured points
+outtitle = "ProfileDiscdata.txt";
+IJ.saveString(Gdiscstr, srcdir + File.separator + outtitle);
+
 
 function get3Dprofile(imp, vecA){
 	var rt = new ResultsTable();
@@ -217,8 +222,10 @@ function getLineVecWide(imp, vos, voe, xys, zs, radius) {
 */
 	} else {
 		var ip;
+		var discA = [];
 		for (var i=0; i<=npixXY; i+=1) {
 			var discpntA = return2Ddisc(vos, vse, i/npixXY, radius, xys);
+			discA.push(discpntA); //for exporting all points 20110923
 			//IJ.log("... disc points" + discpntA.length);
 			var voxlesA = realpos2voxelpos(discpntA, xys, zs);
 			var discdataA = [];
@@ -247,6 +254,7 @@ function getLineVecWide(imp, vos, voe, xys, zs, radius) {
 			thisdisc = 	constructDiscStat(vinc, discdataA);	//discO object			
 			data.push(thisdisc);
 		}
+		dev_saveDiscPoints(discA);
 	}
 	return data;
 }
@@ -318,21 +326,22 @@ function realpos2voxelpos(vpointA, xys, zs){
 			if (voxA[j].equals(cv3)) flag = 0;	
 		if (flag == 1)
 */ 
-			voxA.push(cv3);
-		
+		voxA.push(cv3);	
 	}
-	dev_saveDiscPoints(vpointA);
 	return voxA;	
 }
 
-function dev_saveDiscPoints(vpointA){
-	datastr = "";
-	for (var i = 0; i < vpointA.length; i++){
-		var vp = vpointA[i];
-		datastr = datastr + vp.getX() + "\t" + vp.getY() + "\t"+ vp.getZ() + "\n";  
+//input: array of single disc arrays
+function dev_saveDiscPoints(dA){
+	var datastr = Gdiscstr;
+	for (var j = 0; j < dA.length; j++){
+		var vpointA = dA[j];
+		for (var i = 0; i < vpointA.length; i++){
+			var vp = vpointA[i];
+			datastr = datastr + vp.getX() + "\t" + vp.getY() + "\t"+ vp.getZ() + "\n";  
+		}
 	}
-	outtitle = "ProfileDiscdata.txt";
-	IJ.saveString(datastr, srcdir + File.separator + outtitle);
+	Gdiscstr = datastr; 
 }
 
 
