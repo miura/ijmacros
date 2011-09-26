@@ -42,7 +42,11 @@ IJ.log(pntA[0][1].getX());
 IJ.log(pntA[0].length);
 IJ.log(pntA.length);
 
-imp = IJ.getImage();
+try {
+	imp = IJ.getImage();
+} catch (e){
+	
+}
 
 var width = imp.getWidth();
 var height = imp.getHeight();
