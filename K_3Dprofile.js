@@ -4,6 +4,13 @@
  Kota Miura (miura@embl.de)
  20110920 added with "wide" profile measurements
 
+workflow: prepare a tab-delimited data file with 
+a pair of 3D coordinates per line
+(6 numbers per line). Run this script, and 
+in dialog window choose the file, then 3D intensity profile
+in the top-image window will be calculated and shown in the 
+Results table. 
+
  requirements: apache commons math 3.0< (update to the latest Fiji)
  */
 
@@ -26,10 +33,9 @@ var zfactor =1;
 var interpolate = 0;
 var GXinc = 1;
 
+Gdiscstr = ""; //to check measured points
 
-
-/* x, y, z input are in real scale. 
-*/
+//x, y, z input are in real scale. 
 od = new OpenDialog("Choose Data File", null);
 srcdir = od.getDirectory();
 filename = od.getFileName();
@@ -38,9 +44,8 @@ fullpath = java.lang.String(srcdir+filename);
 
 pntA = PointsfromFile(fullpath);
 
-IJ.log(pntA[0][1].getX());
-IJ.log(pntA[0].length);
-IJ.log(pntA.length);
+//IJ.log(pntA[0][1].getX());
+//IJ.log(pntA.length);
 
 try {
 	imp = IJ.getImage();
@@ -56,6 +61,11 @@ if (Gradius == 0)
 	get3Dprofile(imp, pntA);
 else
 	get3DprofileWide(imp, pntA, Gradius);
+
+//checking the measured points
+outtitle = "ProfileDiscdata.txt";
+IJ.saveString(Gdiscstr, srcdir + File.separator + outtitle);
+
 
 function get3Dprofile(imp, vecA){
 	var rt = new ResultsTable();
@@ -216,8 +226,10 @@ function getLineVecWide(imp, vos, voe, xys, zs, radius) {
 */
 	} else {
 		var ip;
+		var discA = [];
 		for (var i=0; i<=npixXY; i+=1) {
 			var discpntA = return2Ddisc(vos, vse, i/npixXY, radius, xys);
+			discA.push(discpntA); //for exporting all points 20110923
 			//IJ.log("... disc points" + discpntA.length);
 			var voxlesA = realpos2voxelpos(discpntA, xys, zs);
 			var discdataA = [];
@@ -246,6 +258,7 @@ function getLineVecWide(imp, vos, voe, xys, zs, radius) {
 			thisdisc = 	constructDiscStat(vinc, discdataA);	//discO object			
 			data.push(thisdisc);
 		}
+		dev_saveDiscPoints(discA);
 	}
 	return data;
 }
@@ -311,14 +324,30 @@ function realpos2voxelpos(vpointA, xys, zs){
 		var ypos = Math.round(vpoint.getY() / xys);		
 		var zpos = Math.round(vpoint.getZ() / zs) + 1;
 		var cv3 = new Vector3D(xpos, ypos, zpos);
-		//IJ.log("disc ... " + xpos +", "+ ypos +", "+ zpos);
+/* this part eliminates overlapped voxels, but omit this part after taliking with Wani
 		var flag = 1; 
 		for (var j = 0; j < voxA.length; j ++)
 			if (voxA[j].equals(cv3)) flag = 0;	
-		if (flag == 1) voxA.push(cv3);
+		if (flag == 1)
+*/ 
+		voxA.push(cv3);	
 	}
 	return voxA;	
 }
+
+//input: array of single disc arrays
+function dev_saveDiscPoints(dA){
+	var datastr = Gdiscstr;
+	for (var j = 0; j < dA.length; j++){
+		var vpointA = dA[j];
+		for (var i = 0; i < vpointA.length; i++){
+			var vp = vpointA[i];
+			datastr = datastr + vp.getX() + "\t" + vp.getY() + "\t"+ vp.getZ() + "\n";  
+		}
+	}
+	Gdiscstr = datastr; 
+}
+
 
 //parameters
 //	vs: vector from origin to the starting point of a givien profile
