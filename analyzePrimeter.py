@@ -1,3 +1,9 @@
+# analyzePerimeter.py
+# loads data output of Quimp and analyzes the perimeter nodes
+# data are first stored as Vector2D array. 
+# kota Miura (miura@embl.de)
+# 20110923
+
 f = open('Z:/likun/rapae1_cell1/rapa_e1CF_cell12D_0.snQP', 'r')
 filestrA = f.read().split('\n')
 frame = 0
