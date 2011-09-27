@@ -76,13 +76,14 @@ print len(incAA)
 print len(decAA)
 
 try:
-	file1 = open('Z:/likun/e2cell2/testinc.csv', 'wb')
+	savedir = 'Z:/likun/e1cell1/'
+	file1 = open(savedir + 'inc.csv', 'wb')
 	incfile = csv.writer(file1, delimiter='\t')
 	for idx, perframe in enumerate(incAA):
 		for j in perframe:
 			incfile.writerow([repr(idx), repr(j)])
 
-	file2 = open('Z:/likun/e2cell2/testdec.csv', 'wb')
+	file2 = open(savedir + 'dec.csv', 'wb')
 	decfile = csv.writer(file2, delimiter='\t')
 	for idx, perframe in enumerate(decAA):
 		for j in perframe:
