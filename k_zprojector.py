@@ -7,6 +7,7 @@
 # example commandline
 #
 # 	fiji --headless /g/cmci/Scripts/k_zprojector.py /<path>/folder C01
+# 	fiji --headless /g/cmci/Scripts/k_zprojector.py /<path>/folder /path/to/save C01
 # 
 # Kota Miura (miura@embl.de) 
 # 20110922
@@ -83,9 +84,10 @@ def metaFolders(ppath, chstr):
 #chstr = "C01"
 
 ppath = sys.argv[1] 	
-chstr = sys.argv[2]
+spath = sys.argv[2]
+chstr = sys.argv[3]
 sp = JFile.separator 	
 zproimp = metaFolders(ppath, chstr)
-IJ.saveAs(zproimp, "Tiff", ppath + sp + "zproj"+chstr+".tif")
+IJ.saveAs(zproimp, "Tiff", spath + sp + "zproj"+chstr+".tif")
 
 			
