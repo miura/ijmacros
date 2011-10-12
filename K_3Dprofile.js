@@ -2,8 +2,10 @@
  * 
  original macro converted to javascript  
  Kota Miura (miura@embl.de)
- 20110920 added with "wide" profile measurements
-
+ 20110920	added with "wide" profile measurements
+ 20111012	added extended measurements on both sides. (mayumi's request)
+ 		use parameter "Gextends" to control the extended length. 
+ 
 workflow: prepare a tab-delimited data file with 
 a pair of 3D coordinates per line
 (6 numbers per line). Run this script, and 
@@ -15,7 +17,10 @@ Results table.
  */
 
 //**** to measure with certain width, change here to none-zero value. (in real scale) ****
-var Gradius = 0.1;
+var Gradius = 0.1;	//micrometer
+
+//**** extension length on both sides. if 0, no extension. ****
+var Gextends = 0.5;	//micrometer
 
 //importing libraries
 importClass(Packages.org.apache.commons.math.geometry.euclidean.threed.Vector3D);
@@ -27,7 +32,7 @@ importPackage(Packages.java.util);
 importClass(Packages.ij.util.Tools);
 
 //scale should be set manually
-var xyscale = 0.056; //nm/pixel
+var xyscale = 0.056; //um/pixel
 var zscale = 0.7; 
 var zfactor =1;
 var interpolate = 0;
@@ -43,7 +48,9 @@ fullpath = java.lang.String(srcdir+filename);
 //IJ.log(fullpath.getClass());
 
 pntA = PointsfromFile(fullpath);
-
+if (Gextends != 0)
+	pntA = extendVector(pntA);
+	
 //IJ.log(pntA[0][1].getX());
 //IJ.log(pntA.length);
 
@@ -70,12 +77,14 @@ IJ.saveString(Gdiscstr, srcdir + File.separator + outtitle);
 function get3Dprofile(imp, vecA){
 	var rt = new ResultsTable();
 	for (var i = 0; i < vecA.length; i++){
+/*		
 		var x1 = vecA[i][0].getX();
 		var y1 = vecA[i][0].getY();
 		var z1 = vecA[i][0].getZ();
 		var x2 = vecA[i][1].getX();
 		var y2 = vecA[i][1].getY();
 		var z2 = vecA[i][1].getZ();
+*/
 		//var dataA = getLine(imp, x1, y1, z1, x2, y2, z2, xyscale, zscale);
 		var dataA = getLineVec(imp, vecA[i][0], vecA[i][1], xyscale, zscale);
 		var datastr = "";
@@ -157,6 +166,19 @@ function PointsfromFile(datafilepath){
 	}
 	IJ.log("=== point pairs loaded from " + datafilepath);	
 	return pointsA; 		  
+}
+
+// extend vector on each side.
+// applies to the output of PointsfromFile
+// extended length on both sides are determined by Gextends, declared at the top. 
+function extendVector(pointsA){
+	var extpointsA = [];
+	for (var i = 0; i < pointsA.length; i++) {
+		var axisVec = pointsA[i][1].subtract(pointsA[i][0]);
+		var axisNormalizedVec = axisVec.normalize();
+		extpointsA.push([pointsA[i][0].add(-1 * Gextends, axisNormalizedVec), pointsA[i][1].add(Gextends, axisNormalizedVec)]);				
+	}
+	return extpointsA;
 }
 
 //updated version with apache math Vector3D
