@@ -21,8 +21,11 @@ importPackage(Packages.customnode);
 //imagepath = '/Volumes/cmci/mette/s1_f1_10_gb1.tif';
 //timestart = 0;timeend = 10;
 
-imagepath = '/Volumes/cmci/mette/s1_gb1.tif';
-timestart = 0;timeend = 25;
+//imagepath = '/Volumes/cmci/mette/s1_gb1.tif';
+//timestart = 0;timeend = 25;
+
+imagepath = '/Users/miura/Desktop/s1_gb1new.tif';
+timestart = 0; timeend = 23;
 
 //imagepath = '/Volumes/cmci/mette/s1_f1_15_gb1.tif';
 //timestart = 0;timeend = 15;
@@ -39,7 +42,12 @@ timestart = 0;timeend = 25;
 // --- file examples end ---
 
 filepath = "/Users/miura/Dropbox/Mette/Tracks.csv";
-
+filepath = '/Volumes/cmci/mette/Tracks20111213_dist5_path10.csv';
+filepath = '/Volumes/cmci/mette/data20111213cut200_track1_15_10.csv';
+filepath = '/Volumes/cmci/mette/data20111213cut1000_1_15_10.csv';
+filepath = '/Volumes/cmci/mette/data20111213cut500_1_5_10.csv';
+filepath = '/Volumes/cmci/mette/data20111213cut500_1_3_3cc.csv';
+//filepath = '/Volumes/cmci/mette/data20111213cut2500_1_15_10.csv';
 // this frame will not be in
 
 imp = IJ.openImage(imagepath);
@@ -64,7 +72,8 @@ channelswitch[2] = true;
 //c = univ.addVoltex(imp); 
 
 // isosurface
-c = univ.addMesh(imp, col2, "surface", 80, channelswitch, 2);
+//c = univ.addMesh(imp, col2, "surface", 80, channelswitch, 2);
+c = univ.addMesh(imp, col2, "surface", 130, channelswitch, 2);
 c.setTransparency(0.3);
 tl = univ.getTimeline();
 
