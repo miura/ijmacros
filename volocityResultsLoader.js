@@ -1,6 +1,8 @@
 //Volocity output loader
 // load the file from Fiji, then save as measurements. 
-// then use it for the linking. 
+// then use it for the linking.
+// 20111206-8
+// 20111213 Volume screening procedure added (col 8 is the Volume in voxels)
 
 importClass(Packages.javax.vecmath.Point3f);
 importClass(Packages.java.util.Vector);
@@ -12,10 +14,13 @@ importPackage(Packages.customnode);
 
 filepath = "/Users/miura/Dropbox/Mette/Tracks.csv";
 filepath = 'C:\\Documents and Settings\\Kota Miura\\My Documents\\Downloads\\segmentation_z21-47t2-24_3.csv';
-filepath = "/Users/miura/Dropbox/Mette/segmentation_z21-47t2-24_3.csv";
-loadFile(filepath);
+//filepath = "/Users/miura/Dropbox/Mette/segmentation_z21-47t2-24_3.csv";
 
-function loadFile(datapath){
+min_volume = 500;
+loadFile(filepath, min_volume);
+
+
+function loadFile(datapath, minimumVolume){
 
 	var reader = new CSVReader(new FileReader(datapath), ",", "\"");
 	var ls = reader.readAll();
@@ -31,16 +36,18 @@ function loadFile(datapath){
 		if (counter == 1)
 			headerA = cA;
 		if (counter > 1){
-			row = rt.getCounter(); 
-			rt.incrementCounter();
-			IJ.log("row " + row);
-			rt.setValue(headerA[0], row, Integer.valueOf(cA[0]));
-			rt.setValue(headerA[4], row, Double.valueOf(cA[4]));
-			for (var i = 8; i < cA.length; i++){
-				rt.setValue(headerA[i], row, Double.valueOf(cA[i]));
-				IJ.log(Double.valueOf(cA[i]));
-			}
-						
+			if (minimumVolume < Double.valueOf(cA[8])){ //volume chech
+				row = rt.getCounter(); 
+				rt.incrementCounter();
+				IJ.log("row " + row);
+				rt.setValue(headerA[0], row, Integer.valueOf(cA[0]));
+				rt.setValue(headerA[4], row, Double.valueOf(cA[4]));
+				for (var i = 8; i < cA.length; i++){
+					rt.setValue(headerA[i], row, Double.valueOf(cA[i]));
+					IJ.log(Double.valueOf(cA[i]));
+				}
+			}	
+		}					
 /*				
 			if ((currentTrajID - Double.valueOf(cA[1]) != 0) && (atraj.size() > 0)){
 				IJ.log(Double.toString(currentTrajID) + cA[1]);
@@ -57,7 +64,7 @@ function loadFile(datapath){
  			atraj.add(Point3f(Double.valueOf(cA[6]),Double.valueOf(cA[7]),Double.valueOf(cA[8]))); 
  			timepoints.add(Double.valueOf(cA[2]));  
  */
-		}
+		
 		counter++;
 	}
 	rt.show("Results");
