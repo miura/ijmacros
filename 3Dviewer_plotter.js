@@ -42,15 +42,18 @@ timestart = 0; timeend = 23;
 // --- file examples end ---
 
 filepath = "/Users/miura/Dropbox/Mette/Tracks.csv";
+/*
 filepath = '/Volumes/cmci/mette/Tracks20111213_dist5_path10.csv';
 filepath = '/Volumes/cmci/mette/data20111213cut200_track1_15_10.csv';
 filepath = '/Volumes/cmci/mette/data20111213cut1000_1_15_10.csv';
 filepath = '/Volumes/cmci/mette/data20111213cut500_1_5_10.csv';
 filepath = '/Volumes/cmci/mette/data20111213cut500_1_3_3cc.csv';
+*/
 //filepath = '/Volumes/cmci/mette/data20111213cut2500_1_15_10.csv';
 // this frame will not be in
 
-imp = IJ.openImage(imagepath);
+
+//imp = IJ.openImage(imagepath); //temp out 20111213
 tList = loadFile(filepath);
 IJ.log("tracks:" + tList.size());
 /*
@@ -62,6 +65,7 @@ univ.show();
 
 col = Color3f(0, 1.0, 0.5);
 col2 = Color3f(1.0, 0, 0);
+colw = Color3f(1.0, 1.0, 1.0);
 
 channelswitch = java.lang.reflect.Array.newInstance(java.lang.Boolean.TYPE, 3);
 channelswitch[0] = true;
@@ -73,10 +77,11 @@ channelswitch[2] = true;
 
 // isosurface
 //c = univ.addMesh(imp, col2, "surface", 80, channelswitch, 2);
+/* tempout 20111213
 c = univ.addMesh(imp, col2, "surface", 130, channelswitch, 2);
 c.setTransparency(0.3);
 tl = univ.getTimeline();
-
+*/
 
 /* // this block 
 clmmLine = CustomMultiMesh();
@@ -120,6 +125,15 @@ for (var i = timestart; i < timeend; i++){
 			var clm = CustomLineMesh(pathextract, CustomLineMesh.CONTINUOUS, col, 0);
 			clmmProLine.add(clm);
 			clm.setLineWidth(2);
+
+			var index = ReturnIndexFromTime(i, curtraj.timepoints);
+			if (index != 0){
+				var singlepoint = Vector();
+				singlepoint.add(curtraj.dotList.get(index));
+				var cmp = new CustomPointMesh(singlepoint, colw, 0);
+				clmmProLine.add(cmp);
+				cmp.setPointSize(5);
+			}
 		}
 	}
 	cc = ContentCreator.createContent(clmmProLine, "time" + Integer.toString(i), i-timestart);
@@ -196,6 +210,15 @@ function CheckTimePointExists(thistimepoint, timepoints){
 		includesthistime = true;
 	}
 	return includesthistime;
+}
+
+function ReturnIndexFromTime(srctime, timepoints){
+	var index = -1;
+	for (var i = 0; i < timepoints.size(); i++){
+		if (srctime == timepoints.get(i))
+			index = i;
+	}
+	return index;
 }
 
 function ReturnTrajectoryFragment(){
