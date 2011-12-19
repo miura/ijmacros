@@ -14,9 +14,11 @@ importPackage(Packages.customnode);
 
 filepath = "/Users/miura/Dropbox/Mette/Tracks.csv";
 filepath = 'C:\\Documents and Settings\\Kota Miura\\My Documents\\Downloads\\segmentation_z21-47t2-24_3.csv';
+filepath = 'Z:\\mette\\27h_\\measurements_27h_H2A_mCherry_KOTA.csv';
 //filepath = "/Users/miura/Dropbox/Mette/segmentation_z21-47t2-24_3.csv";
+filepath = 'Z:\\mette\\27h_\\measurements_27h_H2A_mCherry_KOTAFixed.csv';
 
-min_volume = 500;
+min_volume = 100;
 loadFile(filepath, min_volume);
 
 
