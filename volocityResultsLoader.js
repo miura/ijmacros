@@ -17,10 +17,14 @@ filepath = 'C:\\Documents and Settings\\Kota Miura\\My Documents\\Downloads\\seg
 filepath = 'Z:\\mette\\27h_\\measurements_27h_H2A_mCherry_KOTA.csv';
 //filepath = "/Users/miura/Dropbox/Mette/segmentation_z21-47t2-24_3.csv";
 filepath = 'Z:\\mette\\27h_\\measurements_27h_H2A_mCherry_KOTAFixed.csv';
-
-min_volume = 100;
+filepath = 'Z:\\mette\\23h_\\measurements_H2A_mCherry_23h-_z1-47t1-30.csv';
+filepath = 'Z:\\mette\\20_23h_firstSample\\segmentation20120117\\segmentation_15Jan2012_20-23hpf.csv' // full segmentation of 20_23hr
+min_volume = 0;
 loadFile(filepath, min_volume);
 
+// column 0: index
+// column 4: Timepoint
+// cplumn 8: Voxelcount and else ...
 
 function loadFile(datapath, minimumVolume){
 
