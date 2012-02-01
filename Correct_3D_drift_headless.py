@@ -5,7 +5,7 @@
 # to compute translations only, in all 3 spatial axes.
 # Operates on a virtual stack.
 # Kota 20120130, no dialog vers
-# ... line 219 and 234 should be overwritten for correct source imsage stack and target folder to be saved. 
+# ... line 26-28 should be overwritten for correct source imsage stack and target folder to be saved. 
 
 from ij import VirtualStack, IJ, CompositeImage, ImageStack, ImagePlus
 from ij.process import ColorProcessor
@@ -21,6 +21,11 @@ from java.io import FileWriter
 from java.lang.reflect import Array
 from java.lang import String, Class 
 # imp stands for ij.ImagePlus instance
+
+#parameters, file path
+hypstackpath = '/g/cmci/mette/23h_/23h.tif'
+target_folder = '/g/cmci/mette/3ddriftCorrection'
+channel =  1  # zero-based
 
 def compute_stitch(imp1, imp2):
   """ Compute a Point3i that expressed the translation of imp2 relative to imp1."""
@@ -219,7 +224,6 @@ def validate(target_folder):
 
 def run():
   #imp = IJ.getImage()
-  hypstackpath = '/g/cmci/mette/23h_/23h.tif'
   imp = IJ.openImage(hypstackpath)
   if imp is None:
     print "No such image in assigned path!"
@@ -235,7 +239,6 @@ def run():
     return
   #dc = DirectoryChooser("Choose target folder")
   #dc = '/g/cmci/registrationOut'
-  target_folder = '/g/cmci/mette/3ddriftCorrection'
   if target_folder is None:
     return # user canceled the dialog
   if not validate(target_folder):
@@ -249,7 +252,6 @@ def run():
   #if gd.wasCanceled():
     #return
   #channel = gd.getNextChoiceIndex() + 1  # zero-based
-  channel =  1  # zero-based
   vs_imp = create_registered_hyperstack(imp, target_folder, channel)
   if vs_imp is None:
     print "failed in processing."
