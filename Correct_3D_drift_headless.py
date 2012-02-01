@@ -20,6 +20,7 @@ from util.opencsv import CSVWriter
 from java.io import FileWriter
 from java.lang.reflect import Array
 from java.lang import String, Class 
+import sys
 # imp stands for ij.ImagePlus instance
 
 #parameter
@@ -227,7 +228,7 @@ def run():
   hyperstackpath = sys.argv[1]
   target_folder = sys.argv[2]
   channel = 1
-  imp = IJ.openImage(hypstackpath)
+  imp = IJ.openImage(hyperstackpath)
   if imp is None:
     print "No such image in assigned path!"
     return
