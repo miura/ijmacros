@@ -5,7 +5,7 @@
 # to compute translations only, in all 3 spatial axes.
 # Operates on a virtual stack.
 # Kota 20120130, no dialog vers
-# ... line 26-28 should be overwritten for correct source imsage stack and target folder to be saved. 
+# ... line 26 (channel) is fixed to 1. If you need to process the second channel, modify accordingly  
 
 from ij import VirtualStack, IJ, CompositeImage, ImageStack, ImagePlus
 from ij.process import ColorProcessor
@@ -22,9 +22,7 @@ from java.lang.reflect import Array
 from java.lang import String, Class 
 # imp stands for ij.ImagePlus instance
 
-#parameters, file path
-hypstackpath = '/g/cmci/mette/23h_/23h.tif'
-target_folder = '/g/cmci/mette/3ddriftCorrection'
+#parameter
 channel =  1  # zero-based
 
 def compute_stitch(imp1, imp2):
@@ -223,7 +221,12 @@ def validate(target_folder):
   return True
 
 def run():
-  #imp = IJ.getImage()
+  if len(sys.argv) < 3:
+    print "Usage: fiji <script-name> <file-path> <save-dir path>"
+    sys.exit(1) #imp = IJ.getImage()
+  hyperstackpath = sys.argv[1]
+  target_folder = sys.argv[2]
+  channel = 1
   imp = IJ.openImage(hypstackpath)
   if imp is None:
     print "No such image in assigned path!"
