@@ -3,10 +3,10 @@
 # destination is the same directory, a directory for each lif file is created
 # and all image files in that lif file will be z projected and saved under the directory.  
 # Kota Miua (miura@embl.de)
-# 20120206
+# 20120206 ver 1.0
 #
-# commandline example
-# fiji headlessZprojector.py /g/cmci/test/
+# commandline example: single argument, a source directory
+# fiji zproj_LIF_headelss.py /g/cmci/test/
 
 from loci.plugins.macro import LociFunctions as LociFunctions
 from loci.plugins import BF
