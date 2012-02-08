@@ -55,7 +55,7 @@ def printInfo(impA):
 def zproj(imp):
 	zpimp = ZP()
 	zpimp.setImage(imp)
-	zpimp.setMethod(zpimp.MAX_METHOD)
+	zpimp.setMethod(zpimp.SUM_METHOD)
 	zpimp.setStartSlice(1)
 	zpimp.setStopSlice(imp.getNSlices())
 	zpimp.doHyperStackProjection(True)
