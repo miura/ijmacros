@@ -1,4 +1,5 @@
-# Zprojects 4D image files under separate folders within a meta folder
+# Zprojects 4D image files (tiff series) and 
+# save the resuted stack under separate folders within a meta folder
 #
 # works from command line, intended to be used in server - data storage. 
 # input: arg1 = path to the meta folder
@@ -6,11 +7,12 @@
 # output: a 2D time series under meta folder.
 # example commandline
 #
-# 	fiji --headless /g/cmci/Scripts/k_zprojector.py /<path>/folder C01
-# 	fiji --headless /g/cmci/Scripts/k_zprojector.py /<path>/folder /path/to/save C01
+# 	fiji --headless /g/cmci/Scripts/zproj_TifSeries_headless.py /<path>/folder C01
+# 	fiji --headless /g/cmci/Scripts/zproj_TifSeries_headless.py /<path>/folder /path/to/save C01
 # 
 # Kota Miura (miura@embl.de) 
-# 20110922
+# 20110922 first version (for Li-Kun's data)
+# 20120207 renamed the file from k_zprojector to zproj_TifSeries_headless
 
 import sys
 from java.io import File as JFile

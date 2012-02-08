@@ -3,10 +3,10 @@
 # destination is the same directory, a directory for each lif file is created
 # and all image files in that lif file will be z projected and saved under the directory.  
 # Kota Miua (miura@embl.de)
-# 20120206
+# 20120206 ver 1.0
 #
-# commandline example
-# fiji headlessZprojector.py /g/cmci/test/
+# commandline example: single argument, a source directory
+# fiji zproj_LIF_headelss.py /g/cmci/test/
 
 from loci.plugins.macro import LociFunctions as LociFunctions
 from loci.plugins import BF
@@ -55,7 +55,7 @@ def printInfo(impA):
 def zproj(imp):
 	zpimp = ZP()
 	zpimp.setImage(imp)
-	zpimp.setMethod(zpimp.MAX_METHOD)
+	zpimp.setMethod(zpimp.SUM_METHOD)
 	zpimp.setStartSlice(1)
 	zpimp.setStopSlice(imp.getNSlices())
 	zpimp.doHyperStackProjection(True)
@@ -84,24 +84,29 @@ def getArg():
   return target_folder
 
 filedir = getArg()   
+filedir = os.path.join(filedir)
 filelist = os.listdir(filedir)
 for afile in filelist:
-	if afile.lower().endswith('.lif'):
-		print filedir
-		print "..." + afile
-		filebase = splitext(afile)[0]
-		imps = getImps(filedir+afile)
-		printInfo(imps)	
-		for (counter, item) in enumerate(imps):
-			outimp = zproj(item)
-			#outname = filedir + filebase + "/" + "s" + str(counter) + ".tif"
-			subname = ijtool.split(item.getTitle(), " - ")[1]
-			outname = filedir + filebase + "/" + subname + "_ZP.tif"
-			if not os.path.isdir(filedir + filebase):
-				os.mkdir(filedir + filebase)
-			fs = FileSaver(outimp)
-			fs.saveAsTiffStack(outname)
-			
+  if afile.lower().endswith('.lif'):
+    print filedir
+    print "..." + afile
+    filebase = splitext(afile)[0]
+    imps = getImps(os.path.join(filedir, afile))
+    printInfo(imps)	
+    for (counter, item) in enumerate(imps):
+      outimp = zproj(item)
+      #outname = filedir + filebase + "/" + "s" + str(counter) + ".tif"
+      subname = ijtool.split(item.getTitle(), " - ")[1]
+      #outname = filedir + filebase + "/" + subname + "_ZP.tif"
+      outname = os.path.join(filedir, filebase, subname + "_ZP.tif")
+      print outname
+      outdir = os.path.join(filedir, filebase)
+      print outdir
+      if not os.path.isdir(outdir):
+        os.mkdir(outdir)
+      fs = FileSaver(outimp)
+      fs.saveAsTiffStack(outname)
+
 #outimp = zproject(filepath)
 #outimp.show()
 
