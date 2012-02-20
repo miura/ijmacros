@@ -34,7 +34,6 @@ def readCSV(filepath):
 
 # extracting stack time frames and convert to ortho
 
-imgpath = 
 #filepath = '/Users/miura/Dropbox/Mette/20_23h/20_23hrfull_corrected_1_6_6_netdispZ40.csv'
 filepath = '/Users/miura/Dropbox/Mette/20_23h/20_23hrfull_corrected_1_6_6_netdispZ0.csv'
 
@@ -95,7 +94,3 @@ for d in data:
 #out.show()
 outimp = ImagePlus(os.path.basename(filename)+'_Out.tif', ip)
 outimp.show()
-IJ.saveAs(newfilename, )
-
-
-
