@@ -34,6 +34,7 @@ def readCSV(filepath):
 imp = IJ.getImage()
 stkA = ArrayList()
 for i in range(1, 4):
+#for i in range(1, imp.getNFrames()):
    e4d = Extractfrom4D()
    e4d.setGstarttimepoint(i)
    IJ.log("current time point" + str(i))

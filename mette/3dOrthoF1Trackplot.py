@@ -1,8 +1,8 @@
 """
-Single frame plotting version of 3dextractor.py.
+Single frame plotting, All tracks.
+
 Converts 4D hyperstack to 3D stack with ortho-views in xy, xz, yz, each with Max projections.
-Then 2D vectors are plotted all in the first frame ortho view, according to the specified data file. 
-(output of 4D visualizaiton plotter, Plot_4D.jar and net displacements)
+Then 2D tracks are plotted.
 
 Requires emblTool.jar package. 
 
@@ -34,9 +34,7 @@ def readCSV(filepath):
 
 # extracting stack time frames and convert to ortho
 
-#filepath = '/Users/miura/Dropbox/Mette/20_23h/20_23hrfull_corrected_1_6_6_netdispZ40.csv'
-filepath = '/Users/miura/Dropbox/Mette/20_23h/20_23hrfull_corrected_1_6_6_netdispZ0.csv'
-filepath = 'Z:/mette/20_23h_firstSample/netdisp/20_23hrfull_corrected_1_6_6_netdispZ0.csv'
+filepath = 'C:/dropbox/My Dropbox/Mette/20_23h/20_23hrfull_corrected_1_6_6.csv'
 imp = IJ.getImage()
 stkA = ArrayList()
 for i in range(1, 4):
@@ -72,34 +70,44 @@ cblue = Color(0, 0, 255)
 xoffset = imp.getWidth()
 yoffset = imp.getHeight()
 ip = out.getStack().getProcessor(1)
-for d in data:
-   frame = int(d[1])
-   x1 = int(round(float(d[2]) / xscale))
-   y1 = int(round(float(d[3]) / xscale))
-#   z1 = int(round(float(d[4]) / zscale))
-   z1 = int(round(float(d[4]) / xscale))   
-   x2 = int(round(float(d[5]) / xscale))
-   y2 = int(round(float(d[6]) / xscale))
-#   z2 = int(round(float(d[7]) / zscale))
-   z2 = int(round(float(d[7]) / xscale))
-   direction = float(d[8])
-   if direction <= 0:
-      ip.setColor(Color(255, 100, 100))
-   else:
-      ip.setColor(Color(100, 100, 255))
-   ip.setLineWidth(1)
-   ip.drawLine(x1, y1, x2, y2)
-   ip.drawLine(x1, yoffset+ z1, x2, yoffset+z2)
-   ip.drawLine(xoffset+z1, y1, xoffset+z2, y2)
+
+for i in range(len(data)-1):
+	if i < 1:
+		continue
+#	if i > 20:
+#		break
+	frame = float(data.get(i)[2])
+	nextframe = float(data.get(i+1)[2])
+	if nextframe - frame < 1:
+		print str(i), 'trackend'
+	else:
+		#print str(i), 'in track'
+		x1 = int(round(float(data.get(i)[6]) / xscale))
+		y1 = int(round(float(data.get(i)[7]) / xscale))
+		z1 = int(round(float(data.get(i)[8]) / xscale))
+		x2 = int(round(float(data.get(i+1)[6]) / xscale))
+		y2 = int(round(float(data.get(i+1)[7]) / xscale))
+		z2 = int(round(float(data.get(i+1)[8]) / xscale))	
+		ip.setLineWidth(1)
+		ip.setColor(Color(255, 100, 100))
+		ip.drawLine(x1, y1, x2, y2)
+		ip.drawLine(x1, yoffset+ z1, x2, yoffset+z2)
+		ip.drawLine(xoffset+z1, y1, xoffset+z2, y2)
+		
+
+#for d in data:
+#   frame = int(d[1])
+#   direction = float(d[8])
+#   if direction <= 0:
+#      
+#   else:
+#      ip.setColor(Color(100, 100, 255))
 #out.updateAndDraw()
+
 # plot 
-#out.show()
 outimp = ImagePlus(os.path.basename(filename)+'_Out.tif', ip)
 outimp.show()
-<<<<<<< HEAD
-=======
 
 
 
 
->>>>>>> a0f4f7b297550ddc278100b2073493e4cc0a4c84

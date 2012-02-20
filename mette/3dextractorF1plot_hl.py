@@ -29,7 +29,7 @@ def readCSV(filepath):
    ls = reader.readAll()
    data = ArrayList()
    for item in ls:
-   	  data.add(item)
+      data.add(item)
    return data
 
 
@@ -37,13 +37,13 @@ def readCSV(filepath):
 # extracting stack time frames and convert to ortho
 pa = '/g/cmci/mette/'
 
-imgpath =　pa + '20_23h_firstSample/20h_shifted.tif'
+imgpath = pa + '20_23h_firstSample/20h_shifted.tif'
 filepath = pa + '20_23h_firstSample/netdisp/20_23hrfull_corrected_1_6_6_netdispZ0.csv'
 #filepath = pa + '20_23h_firstSample/netdisp/20_23hrfull_corrected_1_6_6_netdispZ40.csv'
 #filepath = pa + '20_23h_firstSample/netdisp/20_23hrfullDriftCor_Track1_6_1_netdispZ30.csv'
 #filepath = pa + '20_23h_firstSample/netdisp/20_23hrfullDriftCor_Track1_6_1_netdispZ40.csv'
 
-#imgpath =　pa + '23h_/23h_shiftedf.tif'
+#imgpath = pa + '23h_/23h_shiftedf.tif'
 #filepath = pa + '23h_/netdisp/23hdatacut0_3dshifted_1_6_1_netdispZ0.csv'
 #filepath = pa + '23h_/netdisp/23hdatacut0_3dshifted_1_6_1_netdispZ15.csv'
 #filepath = pa + '23h_/netdisp/23hdatacut0_3dshifted_1_6_1_netdispZ40.csv'
@@ -51,8 +51,8 @@ filepath = pa + '20_23h_firstSample/netdisp/20_23hrfull_corrected_1_6_6_netdispZ
 #filepath = pa + '23h_/netdisp/23hdatacut0_3dshifted_1_6_6_netdispZ15.csv'
 #filepath = pa + '23h_/netdisp/23hdatacut0_3dshifted_1_6_6_netdispZ40.csv'
 
-#imgpath =　pa + '27h_/27h_shifted.tif'
-#imgpath =　pa + '18-27h/18h_shifted.tif'
+#imgpath = pa + '27h_/27h_shifted.tif'
+#imgpath = pa + '18-27h/18h_shifted.tif'
 
 imp = IJ.openImage(imgpath)
 #imp = IJ.getImage()
@@ -77,7 +77,7 @@ IJ.run(out, "RGB Color", "");
 
 # load data from file
 filename = os.path.basename(filepath)
-newfilename = os.path.join(os.path.splitext(filename)[0], '_plot.tif')
+newfilepath = os.path.splitext(filepath)[0] + '_plot.tif'
 
 PLOT_ONLY_IN_FRAME1 = False
 data = readCSV(filepath)
@@ -94,10 +94,10 @@ for d in data:
    frame = int(d[1])
    x1 = int(round(float(d[2]) / xscale))
    y1 = int(round(float(d[3]) / yscale))
-   z1 = int(round(float(d[4]) / zscale))
+   z1 = int(round(float(d[4]) / xscale**2 * zscale))
    x2 = int(round(float(d[5]) / xscale))
    y2 = int(round(float(d[6]) / yscale))
-   z2 = int(round(float(d[7]) / zscale))
+   z2 = int(round(float(d[7]) / xscale**2 * zscale))
    direction = float(d[8])
    if direction <= 0:
       ip.setColor(Color(255, 100, 100))
@@ -112,8 +112,5 @@ for d in data:
 #out.show()
 outimp = ImagePlus(os.path.basename(filename)+'_Out.tif', ip)
 #outimp.show()
-IJ.save(outimp, newfilename)
-IJ.log("File saved:" + newfilename)
-
-
-
+IJ.save(outimp, newfilepath)
+IJ.log("File saved:" + newfilepath)
