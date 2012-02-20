@@ -34,7 +34,18 @@ def readCSV(filepath):
 
 # extracting stack time frames and convert to ortho
 
-filepath = 'C:/dropbox/My Dropbox/Mette/20_23h/20_23hrfull_corrected_1_6_6.csv'
+#20hr
+#filepath = 'C:/dropbox/My Dropbox/Mette/20_23h/20_23hrfull_corrected_1_6_6.csv'
+#filepath = 'C:/dropbox/My Dropbox/Mette/20_23h/20_23hrfullDriftCor_Track1_6_1.csv'
+#23hr
+#filepath = 'C:/dropbox/My Dropbox/Mette/23h_/23hdatacut0_3dshifted_1_6_6.csv'
+#filepath = 'C:/dropbox/My Dropbox/Mette/23h_/23hdatacut0_3dshifted_1_6_1.csv'
+#27hr
+filepath = 'C:/dropbox/My Dropbox/Mette/27h/data27_cut0_corrected_1_6_6.csv'
+#filepath = 'C:/dropbox/My Dropbox/Mette/27h/data27_cut0_corrected_1_6_1.csv'
+
+
+
 imp = IJ.getImage()
 stkA = ArrayList()
 for i in range(1, 4):
