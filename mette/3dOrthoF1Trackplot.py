@@ -1,5 +1,5 @@
 """
-Single frame plotting, All tracks.
+Single frame (the first time frame) ortho view plotting, All tracks.
 
 Converts 4D hyperstack to 3D stack with ortho-views in xy, xz, yz, each with Max projections.
 Then 2D tracks are plotted.
@@ -34,6 +34,8 @@ def readCSV(filepath):
 
 # extracting stack time frames and convert to ortho
 
+#20hr original
+filepath= 'C:/dropbox/My Dropbox/Mette/20_23h/20_23hrfull_1_6_6.csv'
 #20hr
 #filepath = 'C:/dropbox/My Dropbox/Mette/20_23h/20_23hrfull_corrected_1_6_6.csv'
 #filepath = 'C:/dropbox/My Dropbox/Mette/20_23h/20_23hrfullDriftCor_Track1_6_1.csv'
@@ -41,7 +43,7 @@ def readCSV(filepath):
 #filepath = 'C:/dropbox/My Dropbox/Mette/23h_/23hdatacut0_3dshifted_1_6_6.csv'
 #filepath = 'C:/dropbox/My Dropbox/Mette/23h_/23hdatacut0_3dshifted_1_6_1.csv'
 #27hr
-filepath = 'C:/dropbox/My Dropbox/Mette/27h/data27_cut0_corrected_1_6_6.csv'
+#filepath = 'C:/dropbox/My Dropbox/Mette/27h/data27_cut0_corrected_1_6_6.csv'
 #filepath = 'C:/dropbox/My Dropbox/Mette/27h/data27_cut0_corrected_1_6_1.csv'
 
 
