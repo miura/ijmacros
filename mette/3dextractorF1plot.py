@@ -96,7 +96,10 @@ for d in data:
 #out.show()
 outimp = ImagePlus(os.path.basename(filename)+'_Out.tif', ip)
 outimp.show()
+<<<<<<< HEAD
+=======
 
 
 
 
+>>>>>>> a0f4f7b297550ddc278100b2073493e4cc0a4c84
