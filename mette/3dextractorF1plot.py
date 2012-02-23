@@ -1,12 +1,13 @@
 """
-Single frame plotting version of 3dextractor.py.
+Single frame net displacement plotting version of 3dextractor.py.
 Converts 4D hyperstack to 3D stack with ortho-views in xy, xz, yz, each with Max projections.
 Then 2D vectors are plotted all in the first frame ortho view, according to the specified data file. 
 (output of 4D visualizaiton plotter, Plot_4D.jar and net displacements)
 
 Requires emblTool.jar package. 
 
-20120220, First Version
+20120220 First Version
+20120221 bug fixes
 Kota Miura (miura@embl.de)
 """
 from emblcmci import Extractfrom4D
@@ -34,34 +35,26 @@ def readCSV(filepath):
 
 # extracting stack time frames and convert to ortho
 
-#filepath = '/Users/miura/Dropbox/Mette/20_23h/20_23hrfull_corrected_1_6_6_netdispZ40.csv'
-filepath = '/Users/miura/Dropbox/Mette/20_23h/20_23hrfull_corrected_1_6_6_netdispZ0.csv'
-filepath = 'Z:/mette/20_23h_firstSample/netdisp/20_23hrfull_corrected_1_6_6_netdispZ0.csv'
+filepath = '/Users/miura/Dropbox/Mette/20_23h/20_23hrfull_corrected_1_6_6_netdispZ35.csv'
+#filepath = '/Users/miura/Dropbox/Mette/20_23h/20_23hrfull_corrected_1_6_6_netdispZ0.csv'
+#filepath = 'Z:/mette/20_23h_firstSample/netdisp/20_23hrfull_corrected_1_6_6_netdispZ0.csv'
 imp = IJ.getImage()
-stkA = ArrayList()
-for i in range(1, 4):
-   e4d = Extractfrom4D()
-   e4d.setGstarttimepoint(i)
-   IJ.log("current time point" + str(i))
-   aframe = e4d.coreheadless(imp, 3)
-   ortho = XYZMaxProject(aframe)
-   orthoimp = ortho.getXYZProject()
-   stkA.add(orthoimp)
-   #orthoimp.show()
-stk = ImageStack(stkA.get(0).getWidth(), stkA.get(0).getHeight())
-for item in stkA:
-   stk.addSlice("slcie", item.getProcessor())
-out = ImagePlus("out", stk)
-#out.setCalibration(imp.getCalibration().copy())
+e4d = Extractfrom4D()
+e4d.setGstarttimepoint(1)
+IJ.log("current time point" + str(1))
+aframe = e4d.coreheadless(imp, 3)
+ortho = XYZMaxProject(aframe)
+orthoimp = ortho.getXYZProject()
+out = orthoimp
 
 IJ.run(out, "Grays", "");
 IJ.run(out, "RGB Color", "");
+out.setCalibration(imp.getCalibration().copy())
 
 # load data from file
 filename = os.path.basename(filepath)
 newfilename = os.path.join(os.path.splitext(filename)[0], '_plot.tif')
 
-PLOT_ONLY_IN_FRAME1 = False
 data = readCSV(filepath)
 calib = imp.getCalibration()
 xscale = calib.pixelWidth
@@ -71,16 +64,14 @@ cred = Color(255, 0, 0)
 cblue = Color(0, 0, 255)
 xoffset = imp.getWidth()
 yoffset = imp.getHeight()
-ip = out.getStack().getProcessor(1)
+ip = out.getProcessor()
 for d in data:
    frame = int(d[1])
    x1 = int(round(float(d[2]) / xscale))
    y1 = int(round(float(d[3]) / xscale))
-#   z1 = int(round(float(d[4]) / zscale))
    z1 = int(round(float(d[4]) / xscale))   
    x2 = int(round(float(d[5]) / xscale))
    y2 = int(round(float(d[6]) / xscale))
-#   z2 = int(round(float(d[7]) / zscale))
    z2 = int(round(float(d[7]) / xscale))
    direction = float(d[8])
    if direction <= 0:
@@ -96,10 +87,3 @@ for d in data:
 #out.show()
 outimp = ImagePlus(os.path.basename(filename)+'_Out.tif', ip)
 outimp.show()
-<<<<<<< HEAD
-=======
-
-
-
-
->>>>>>> a0f4f7b297550ddc278100b2073493e4cc0a4c84
