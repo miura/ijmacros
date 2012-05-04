@@ -8,10 +8,12 @@
 #
 # Kota Miura (miura@embl.de)
 # 20120419
+# 20120504 fixed a bug to do with signed/unsigned bytes. 
 
 from jarray import zeros
 from emblcmci import Extractfrom4D
 from ij.process import Blitter
+import struct
 
 def ret1Dpos(ww, x, y):
 	return y * ww + x
@@ -27,6 +29,11 @@ def GenByteColormode():
 	cm = LUT(channel, channel, channel)
 	return cm
 	
+def s2u8bit(v):
+	return struct.unpack("B", struct.pack("b", v))[0]
+def u2s8bit(v):
+	return struct.unpack("b", struct.pack("B", v))[0]	
+		
 # yz max projection to x-axis. 
 #stka array of 1D arrays (1D stack)
 def maxprojkymoX(stka, ww, hh, dd):
@@ -36,6 +43,7 @@ def maxprojkymoX(stka, ww, hh, dd):
 		for j in range(dd):
 			for k in range(hh):
 				curval = stka[j][ret1Dpos(ww, i, k)]
+				curval = s2u8bit(curval)
 				if maxval < curval:
 					maxval = curval
 		proj.append(maxval)
@@ -50,6 +58,7 @@ def maxprojkymoY(stka, ww, hh, dd):
 		for j in range(dd):
 			for k in range(ww):
 				curval = stka[j][ret1Dpos(ww, k, i)]
+				curval = s2u8bit(curval)
 				if maxval < curval:
 					maxval = curval
 		proj.append(maxval)
@@ -64,6 +73,7 @@ def maxprojkymoZ(stka, ww, hh, dd):
 		for j in range(hh):
 			for k in range(ww):
 				curval = stka[i][ret1Dpos(ww, k, j)]
+				curval = s2u8bit(curval)
 				if maxval < curval:
 					maxval = curval
 		proj.append(maxval)
@@ -80,15 +90,16 @@ kymoZA = []
 for i in range(timepoints):
 	e4d = Extractfrom4D()
 	e4d.setGstarttimepoint(i+1)
-	IJ.log("current time point" + str(1))
+	IJ.log("current time point" + str(i+1))
 	aframe = e4d.coreheadless(imp, 3)
 	stka = aframe.getImageStack().getImageArray()
+	#stka = map(s2u8bit, stkas)
 	outXA = maxprojkymoX(stka, aframe.getWidth(), aframe.getHeight(), aframe.getStackSize())
-	kymoXA = kymoXA + outXA
+	kymoXA = kymoXA + map(u2s8bit, outXA)
 	outYA = maxprojkymoY(stka, aframe.getWidth(), aframe.getHeight(), aframe.getStackSize())
-	kymoYA = kymoYA + outYA	
+	kymoYA = kymoYA + map(u2s8bit, outYA)	
 	outZA = maxprojkymoZ(stka, aframe.getWidth(), aframe.getHeight(), aframe.getStackSize())
-	kymoZA = kymoZA + outZA		
+	kymoZA = kymoZA + map(u2s8bit, outZA)		
 
 kymoXip = ByteProcessor(imp.getWidth(), imp.getNFrames(), kymoXA, GenByteColormode())
 kymoYip = ByteProcessor(imp.getHeight(), imp.getNFrames(), kymoYA, GenByteColormode())
