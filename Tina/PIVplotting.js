@@ -1,4 +1,4 @@
-// for Lotting VectorField using PIV output plugin
+// Plots Multiple VectorFields as a stack using PIV output plugin
 // Kota Miura (miura@embl.de)
 // 
 // Collaborator: Tina @ De Renzis
@@ -7,7 +7,7 @@
 //path = "D:\\People\\Tina\\20110813\\out\\";
 //path = "Z:\\Tina\\outNoneSeg\\";
 //filename ="PIV_segmented_f88_90.txt"; 
-//filename ="PIV_segmented_f01_02.txt";
+//filename ="PIV_11segmented_f01_02.txt";
 //filename ="segmented.tif48_49.txt";
 
 importPackage(java.io);

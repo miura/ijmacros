@@ -1,3 +1,12 @@
+/* Batch processing script for PIV. 
+The plugin-site: https://sites.google.com/site/qingzongtseng/piv
+
+Change following variables 
+	input files: path, savepath, imagestack
+	PIV parameter: line 19
+
+Kota Miura (miura@embl.de)
+*/
 //path ="D:\\People\\Tina\\20110813\\";
 path = "Z:\\Tina\\";
 //savepath = path + "out\\"; 
