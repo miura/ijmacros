@@ -2,7 +2,10 @@
 // Kota Miura (miura@embl.de)
 // 
 // Collaborator: Tina @ De Renzis
-//
+// 		 Matteo @
+// 201108- 
+// update: 20120829
+
 // some pathes alternatively used
 //path = "D:\\People\\Tina\\20110813\\out\\";
 //path = "Z:\\Tina\\outNoneSeg\\";
@@ -11,10 +14,22 @@
 //filename ="segmented.tif48_49.txt";
 
 importPackage(java.io);
-path = "Z:\\Tina\\outNoneSeg";
+// === Path to data directory ===
+//path = "Z:\\Tina\\outNoneSeg";
 //path = "D:\\People\\Tina\\20110813\\out";
 //path = "Z:\\Tina\\test";
+path = '/Volumes/D/Matteo/vecdata';
+// === parameters ===
+scale = 5;
+plotmax = 15.0;
+plotwidth = 636;
+plotheight = 4000;
+// ==================
 dir = new File(path);
+if (!dir.exists()){
+	IJ.error('no such path!');
+	javascript_abort();
+} 
 filesA = dir.list();
 sp = File.separator;
 
@@ -61,7 +76,16 @@ function PIVplotter(path, filename, sp){
 	var arg1 = "select=" + path + sp + filename; 
 	var op = arg1 	
 //		+" vector_scale=15 max=3 plot_width=512 plot_height=512 show lut=S_Pet";
-		+" vector_scale=15 max=1.5 plot_width=512 plot_height=512 lut=S_Pet";		
+//		+" vector_scale=15 max=1.5 plot_width=512 plot_height=512 lut=S_Pet";
+		+" vector_scale=" + scale + 
+		" max=" + plotmax + 
+		" plot_width=" + plotwidth + 
+		" plot_height=" + plotheight + 
+		" lut=S_Pet";				
 	IJ.log(op);
 	IJ.run("plot...", op);
+}
+// http://vikku.info/codesnippets/javascript/forcing-javascript-to-abort-stop-javascript-execution-at-any-time/}
+function javascript_abort(){
+   throw new Error('This is not an error. This is just to abort javascript');
 }
