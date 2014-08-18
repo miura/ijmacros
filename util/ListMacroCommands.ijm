@@ -1,6 +1,7 @@
 str = File.openUrlAsString("http://rsb.info.nih.gov/ij/developer/macro/functions.html");
 //print(str);
 lineA = split(str, "\n");
+all = ""
 for (i=0; i<lineA.length; i++){
 	if (startsWith(lineA[i], "<b>")){
 		endindex = indexOf(lineA[i], "</b>");
@@ -13,5 +14,7 @@ for (i=0; i<lineA.length; i++){
 			//}
 		}
 		print(comm );
+		all += comm + " ";
 	}
 }
+print(all);
