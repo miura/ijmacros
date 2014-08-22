@@ -122,6 +122,7 @@ if (top2 < 0){
 
 newImage("combined", "8-bit black", ww3, hh3, dd1+dd2);
 outid = getImageID();
+setVoxelSize(pixelWidth1, pixelHeight1, 1.0, unit);
 
 print(left1, top1);
 print(left2, top2);
