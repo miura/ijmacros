@@ -2,6 +2,7 @@
 # centrosome-centrosome distance
 # TODO: cell segmentation better be done based on Nucleus. 
 
+from ij import IJ, Prefs
 from fiji.threshold import Auto_Threshold
 from ij.plugin.filter import Binary
 from ij.plugin.filter import EDM
@@ -13,13 +14,24 @@ from imagescience.feature import Laplacian
 from ij.plugin import ImageCalculator
 from ij.plugin.filter import ParticleAnalyzer as PA
 from ij.gui import Line
-import math
+import math, sys
 from ij.plugin.filter import ThresholdToSelection
-MAXFIND_TOLERANCE = 1700
+
+# Test mode switch
+TESTMODE = False #True
+
+# Dot detetion sensitivity: lower = more sensitive
+MAXFIND_TOLERANCE = 150
+
+# Particle Size Max & Min
+MAXSIZE = 10
+MINSIZE = 1
+
+Prefs.blackBackground = True
 
 def splitChannels(orgimp):
 	imps = ChannelSplitter.split(orgimp)
-	return imps[0], imps[1]
+	return imps[1], imps[2]
 
 def getNucLabels(segimp):
   fcrresults = FCR().run(segimp, True, True, True, True, True, False, False, 100, 600, 100, True)
@@ -36,7 +48,8 @@ def segCentrosome(imp):
   imp2 = fjimglap.imageplus()
   IJ.run(imp2, "Invert", "")
   IJ.run(imp2, "Unsharp Mask...", "radius=1 mask=0.60")
-  #imp2.show() 
+  if TESTMODE == True:
+    imp2.show() 
   segip = MaximumFinder().findMaxima( imp2.getProcessor(), MAXFIND_TOLERANCE, ImageProcessor.NO_THRESHOLD, MaximumFinder.SINGLE_POINTS , False, False)
   #IJ.run(imp2, "Find Maxima...", "noise=1800 output=[Single Points]")
   return segip
@@ -54,8 +67,6 @@ def maxZprojection(stackimp):
   return zpimp  
 
 def particleAnalysis(slicenum, sliceimp, resrt):
-  MAXSIZE = 10
-  MINSIZE = 1
   options = PA.SHOW_NONE
   rt = ResultsTable()
   p = PA(options, PA.AREA + PA.CENTROID, rt, MINSIZE, MAXSIZE)
@@ -93,11 +104,15 @@ imporgDapi, imporgCent = splitChannels(imporg)
 impDapi = maxZprojection(imporgDapi)
 impCent = maxZprojection(imporgCent)
 
-impCent.show()
+if TESTMODE == True:
+  impCent.show()
 
 ipcentSeg = segCentrosome(impCent)
+if TESTMODE == True:
+  sys.exit()
 impcentSeg = ImagePlus("CentSeg", ipcentSeg)
-#impcentSeg.show()
+if TESTMODE == True:
+  impcentSeg.show()
 
 imp = impDapi.duplicate()
 ImageConverter(imp).convertToGray8() 
@@ -120,10 +135,10 @@ segip = MaximumFinder().findMaxima( ip, 10, ImageProcessor.NO_THRESHOLD, Maximum
 
 #imp.show()
 segimp = ImagePlus("regions", segip)
-#segimp.show()
+segimp.show()
 
 segimps, info, perRegionlist = getNucLabels(segimp)
-#segimps.show()
+segimps.show()
 numregions = len(perRegionlist)
 print numregions
 ic = ImageCalculator()
@@ -139,16 +154,21 @@ for i in range(regionedimp.getStackSize()):
   aregion = regionedimp.getStack().getProcessor(i+1)
   particleAnalysis(i, ImagePlus("extract", aregion), resrt)
 
+#resrt.show("data")
 
 rm = RoiManager()
 for i in range(resrt.getCounter()):
-  x1 = resrt.getValue("c1x", i)
-  y1 = resrt.getValue("c1y", i)
-  x2 = resrt.getValue("c2x", i)
-  y2 = resrt.getValue("c2y", i)
-  resrt.setValue("Distance", i, distance(x1, y1, x2, y2))
-  aroi = Line(x1, y1, x2, y2) 
-  rm.addRoi(aroi)
+  cc = resrt.getValue("counts", i)
+  if cc == 2:
+    print "row", i
+    x1 = resrt.getValue("c1x", i)
+    y1 = resrt.getValue("c1y", i)
+    x2 = resrt.getValue("c2x", i)
+    y2 = resrt.getValue("c2y", i)
+    resrt.setValue("Distance", i, distance(x1, y1, x2, y2))
+    print "points", x1, y1, x2, y2
+    aroi = Line(x1, y1, x2, y2) 
+    rm.addRoi(aroi)
 rm.runCommand("Show All")
 rm.runCommand("Labels")
 resrt.show("results" + imgtitle)
