@@ -41,8 +41,9 @@ if ((x2A.length < 1) || (selectionType() != 10))
 
 if (x1A.length != x2A.length)
 	exit("Point selections should be exactly same number in two images!");
-	
-if (pixelWidth1 != pixelWidth2)
+
+print(d2s(pixelWidth1,8), d2s(pixelWidth2,8));
+if (round(pixelWidth1*10000) - round(pixelWidth2*10000) != 0)
 	exit(" Abort: Scales are different!");
 
 Array.getStatistics(x1A, xmin1, xmax1, xmean1, xstdDev1);
