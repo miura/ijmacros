@@ -1,0 +1,3 @@
+open("/g/almf/miura/Tina/blobs.tif");
+run("Bandpass Filter...", "filter_large=40 filter_small=6 suppress=None tolerance=5 autoscale saturate");
+saveAs("Tiff", "/g/almf/miura/Tina/blobstest.tif");
