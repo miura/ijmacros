@@ -16,7 +16,7 @@ request from Katharina Sonnen
 
 import os
 import re
-from ij import IJ
+from ij import IJ, ImagePlus
 from ij.io import Opener
 from ij.plugin import Concatenator
 from jarray import array
