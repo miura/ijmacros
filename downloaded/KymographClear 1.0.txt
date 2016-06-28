@@ -1,0 +1,972 @@
+/***********************************************/
+/*** KymographClear Macro toolset for ImageJ ***/
+/***      Pierre Mangeol, Bram Prevo & Erwin J.G. Peterman
+Department of Physics and Astronomy, VU University Amsterdam, Amsterdam, The Netherlands. 
+LaserLaB Amsterdam, VU University Amsterdam, Amsterdam, The Netherlands.
+e-mail: e.j.g.peterman@vu.nl
+        ***/
+/***********************************************/
+
+/*************************************************************************************************/
+
+
+var mCmds = newMenu("Open sequence Menu Tool",newArray("Open a sequence and compute average image [F1]","Open a sequence and compute max intensity image [F2]"));
+
+macro "Open sequence Menu Tool - 	Cee8 F14b9  C000 R03c9  Cee8 D13D23  C000 D03D02D01D11D21D31D32 P1b35f5cb0 Cee8 DbaDc9Dc8Dc7Dc6
+{
+	cmd = getArgument();
+	if (cmd!="-" && cmd == "Open a sequence and compute average image [F1]") 
+		{pathfile=File.openDialog("Choose the sequence to Open:");
+
+imageDir=File.directory;
+fileList = getFileList(imageDir); 
+numberSlice=fileList.length;
+
+Dialog.create("Sequence options");
+Dialog.addNumber("Number of images", numberSlice);
+Dialog.addNumber("First image", 1);
+Dialog.addNumber("Increment", 1);
+
+Dialog.show();
+Number_of_images=Dialog.getNumber();
+first_image=Dialog.getNumber();
+increment=Dialog.getNumber();
+
+run("Image Sequence...", 
+  "open=[&pathfile]"+
+  " number="+numberSlice+
+  " starting="+first_image+
+  " increment="+increment+
+  " scale=100 "+
+  "sort");
+
+	run("Z Project...", " projection=[Average Intensity]");
+	setTool("zoom");
+		}
+
+	if (cmd!="-" && cmd == "Open a sequence and compute max intensity image [F2]") 
+		{pathfile=File.openDialog("Choose the sequence to Open:");
+imageDir=File.directory;
+fileList = getFileList(imageDir); 
+numberSlice=fileList.length;
+
+Dialog.create("Sequence options");
+Dialog.addNumber("Number of images", numberSlice);
+Dialog.addNumber("First image", 1);
+Dialog.addNumber("Increment", 1);
+
+Dialog.show();
+Number_of_images=Dialog.getNumber();
+first_image=Dialog.getNumber();
+increment=Dialog.getNumber();
+
+run("Image Sequence...", 
+  "open=[&pathfile]"+
+  " number="+numberSlice+
+  " starting="+first_image+
+  " increment="+increment+
+  " scale=100 "+
+  "sort");
+
+	run("Z Project...", " projection=[Max Intensity]");
+	setTool("zoom");
+		}
+
+}
+
+/*************************************************************************************************/
+
+macro "Open a sequence and compute average image Action Tool [F1]"
+
+{
+pathfile=File.openDialog("Choose the sequence to Open:");
+
+imageDir=File.directory;
+fileList = getFileList(imageDir); 
+numberSlice=fileList.length;
+
+Dialog.create("Sequence options");
+Dialog.addNumber("Number of images", numberSlice);
+Dialog.addNumber("First image", 1);
+Dialog.addNumber("Increment", 1);
+
+Dialog.show();
+Number_of_images=Dialog.getNumber();
+first_image=Dialog.getNumber();
+increment=Dialog.getNumber();
+
+run("Image Sequence...", 
+  "open=[&pathfile]"+
+  " number="+numberSlice+
+  " starting="+first_image+
+  " increment="+increment+
+  " scale=100 "+
+  "sort");
+
+run("Z Project...", " projection=[Average Intensity]");
+setTool("zoom");
+
+}
+
+
+/*************************************************************************************************/
+
+
+macro "Open a sequence and compute max intensity image Action Tool [F2]"
+
+{
+pathfile=File.openDialog("Choose the sequence to Open:");
+
+imageDir=File.directory;
+fileList = getFileList(imageDir); 
+numberSlice=fileList.length;
+
+Dialog.create("Sequence options");
+Dialog.addNumber("Number of images", numberSlice);
+Dialog.addNumber("First image", 1);
+Dialog.addNumber("Increment", 1);
+
+Dialog.show();
+Number_of_images=Dialog.getNumber();
+first_image=Dialog.getNumber();
+increment=Dialog.getNumber();
+
+run("Image Sequence...", 
+  "open=[&pathfile]"+
+  " number="+numberSlice+
+  " starting="+first_image+
+  " increment="+increment+
+  " scale=100 "+
+  "sort");
+
+run("Z Project...", " projection=[Max Intensity]");
+setTool("zoom");
+
+}
+
+
+
+/*************************************************************************************************/
+
+
+
+macro "Make a segmented line [F3] Action Tool - C000 P3e7a34b4f70" {
+setTool("polyline");
+}
+
+
+/*************************************************************************************************/
+
+
+
+macro "Spline [F4] Action Tool - C000 P3e4d5c5b4a393837465565758595a6b6c7d8e80" {
+run("Fit Spline");
+}
+
+/*************************************************************************************************/
+
+
+
+macro "Make a segmented line Action Tool [F3]" {
+setTool("polyline");
+}
+
+
+/*************************************************************************************************/
+
+
+
+macro "Spline Action Tool [F4]" {
+run("Fit Spline");
+}
+
+
+/*************************************************************************************************/
+
+
+
+macro "Kymograph generation [F5] Action Tool - T0908KT5908yT9908mTf908o T0f08gT4f08rT7f08aTbf08pTff08h" {
+
+
+requires("1.47a");
+
+activeimgtittle = getTitle();
+if (startsWith(activeimgtittle, "AVG_"))
+{selectWindow(substring(activeimgtittle,4));}
+if (startsWith(activeimgtittle, "MAX_"))
+{selectWindow(substring(activeimgtittle,4));}
+
+seqID = getImageID();
+setBatchMode(true);
+run("Restore Selection");
+run("Profile Plot Options...", "width=450 height=200 minimum=0 maximum=0 interpolate draw sub-pixel");
+run("Interpolate", "interval=1 smooth");
+  
+
+if (startsWith(File.getName(call("ij.io.OpenDialog.getDefaultDirectory")), "kymograph"))
+
+{if (startsWith(File.getName(File.getParent(call("ij.io.OpenDialog.getDefaultDirectory"))), "kymograph"))
+mainfolderpath = File.getParent(File.getParent((call("ij.io.OpenDialog.getDefaultDirectory"))));
+else mainfolderpath = File.getParent(call("ij.io.OpenDialog.getDefaultDirectory"));}
+
+else if (startsWith(File.getName(call("ij.io.OpenDialog.getDefaultDirectory")), "backward"))
+mainfolderpath = File.getParent(File.getParent(File.getParent(call("ij.io.OpenDialog.getDefaultDirectory"))));
+
+else if (startsWith(File.getName(call("ij.io.OpenDialog.getDefaultDirectory")), "forward"))
+mainfolderpath = File.getParent(File.getParent(File.getParent(call("ij.io.OpenDialog.getDefaultDirectory"))));
+
+else mainfolderpath = call("ij.io.OpenDialog.getDefaultDirectory");
+
+
+if (File.exists(mainfolderpath + File.separator + "kymograph")!=1) {
+	File.makeDirectory(mainfolderpath + File.separator + "kymograph");
+}
+
+
+	i = 1;
+	j = 1;
+  while (File.exists(mainfolderpath + File.separator + "kymograph" + File.separator + "Segment_kymograph_"+ i +".txt")==1) {	
+    	i = i + 1;
+	j = i;
+  }
+
+File.makeDirectory(mainfolderpath + File.separator + "kymograph" + File.separator + "kymograph_"+ j);
+
+saveAs("XY Coordinates", mainfolderpath  + File.separator + "kymograph" + File.separator + "Segment_kymograph_" + j + ".txt");
+
+/////////////// Line width
+
+			chosen_linewidth = getNumber("type a line width:", chosen_linewidth);
+			run("Line Width...", "line=" + chosen_linewidth);
+
+			f_linewidth = File.open( mainfolderpath + File.separator + "kymograph" + File.separator + "kymograph_"+ j +"" + File.separator + "linewidth" + chosen_linewidth + ".txt");
+
+			File.close(f_linewidth);
+			
+/////////////// Retrieve segment from the saved file
+			
+	fkymosegment = File.openAsString(mainfolderpath  + File.separator + "kymograph" + File.separator + "Segment_kymograph_" + j + ".txt");
+
+	rows=split(fkymosegment, "\n"); 
+	x=newArray(rows.length); 
+	y=newArray(rows.length); 
+	for(m=0; m<rows.length; m++){ 
+	columns=split(rows[m],"\t"); 
+	x[m]=parseFloat(columns[0]); 
+	y[m]=parseFloat(columns[1]); 
+	}
+	toUnscaled(x, y);
+
+
+
+File.saveString("", mainfolderpath + File.separator + "kymograph" + File.separator + "kymograph_"+ j + File.separator + "kymograph" + j + ".txt") 
+
+getDimensions(width1, height1, channels, slices, frames);
+
+f = File.open( mainfolderpath + File.separator + "kymograph" + File.separator + "kymograph_"+ j + File.separator + "kymograph" + j + ".txt");
+
+   for (k=1; k<slices+1; k++)
+	{
+	
+		setSlice(k);
+		
+		makeSelection("polyline", x, y);
+		profile = getProfile();
+
+		string="";
+		for (l=0; l<lengthOf(profile); l++) {
+			if (l==0) {
+				string=string+profile[l];
+			} else {
+				string=string+"\t"+profile[l];
+			}
+			
+		}
+		print(f, string);
+  	}
+File.close(f);
+
+run("Line Width...", "line=1");
+
+run("Text Image... ", "open=[" + mainfolderpath + File.separator + "kymograph" + File.separator + "kymograph_"+ j + File.separator + "kymograph" + j + ".txt]");
+makeRectangle(1, 0, lengthOf(profile), slices); ///********** this line and the next one are used to delete the first column of the kymograph which does not make sense most of the time (known problem from ImageJ) ********////
+run("Crop");
+
+selectWindow("kymograph" + j + ".txt");
+
+
+
+saveAs("Tiff", mainfolderpath + File.separator + "kymograph" + File.separator + "kymograph_"+ j + File.separator + "kymograph" + j + ".tif");
+rename("kymograph" + j);
+setTool("zoom");
+
+
+// creation of paved kymograph to reduce edge issues
+
+
+run("Duplicate...", "title=subFourier1");
+run("Duplicate...", "title=subFourier2");
+run("Duplicate...", "title=subFourier3");
+run("Duplicate...", "title=subFourier4");
+
+selectWindow("subFourier2");
+run("Flip Horizontally");
+
+selectWindow("subFourier3");
+run("Flip Horizontally");
+run("Flip Vertically");
+
+selectWindow("subFourier4");
+run("Flip Vertically");
+
+
+setColor(0);
+selectWindow("subFourier1");
+run("Copy");
+getDimensions(width1, height1, channels, slices, frames);
+
+newImage("filter forward", "16-bit Black", 3*width1, 3*height1,1);
+
+ 
+makeRectangle(width1, height1, width1, height1); 
+run("Paste"); 
+
+selectWindow("subFourier2");
+run("Copy");
+selectWindow("filter forward");
+makeRectangle(0, height1, width1, height1); 
+run("Paste"); 
+makeRectangle(2*width1, height1, width1, height1); 
+run("Paste");
+
+selectWindow("subFourier3");
+run("Copy");
+selectWindow("filter forward");
+makeRectangle(0, 0, width1, height1); 
+run("Paste"); 
+makeRectangle(2*width1, 0, width1, height1); 
+run("Paste");
+makeRectangle(0, 2*height1, width1, height1); 
+run("Paste"); 
+makeRectangle(2*width1, 2*height1, width1, height1); 
+run("Paste");
+
+selectWindow("subFourier4");
+run("Copy");
+selectWindow("filter forward");
+makeRectangle(width1, 0, width1, height1); 
+run("Paste"); 
+makeRectangle(width1, 2*height1, width1, height1); 
+run("Paste");
+
+selectWindow("subFourier1");
+close();
+selectWindow("subFourier2");
+close();
+selectWindow("subFourier3");
+close();
+selectWindow("subFourier4");
+close();
+
+makeRectangle(0, 0, 3*width1, 3*height1); 
+newImage("filter backward", "16-bit Black", 3*width1, 3*height1,1);
+newImage("static", "16-bit Black", 3*width1, 3*height1,1);
+
+selectWindow("filter forward");
+makeRectangle(0, 0, 3*width1, 3*height1); 
+run("Copy");
+selectWindow("filter backward");
+run("Paste");
+selectWindow("static");
+run("Paste");
+
+selectWindow("filter forward");
+run("FFT");
+getDimensions(width, height, channels, slices, frames);
+fillRect(width/2, height/2-1, width/2, height/2+1);
+fillRect(0, 0, width/2, height/2+1);
+run("Inverse FFT");
+
+makeRectangle(width1, height1, width1, height1);
+run("Crop");
+saveAs("Tiff", mainfolderpath + File.separator + "kymograph" + File.separator + "kymograph_"+ j + File.separator + "kymograph_" + j + " filtered_forward.tif");
+rename("forward filtered");
+getStatistics(area, mean, min_forward, max_forward, std, histogram);
+
+selectWindow("FFT of filter forward");
+close();
+selectWindow("filter forward");
+close();
+
+selectWindow("filter backward");
+makeRectangle(0, 0, 3*width1, 3*height1); 
+run("Flip Horizontally");
+
+run("FFT");
+fillRect(width/2, height/2-1, width/2, height/2+1);
+fillRect(0, 0, width/2, height/2+1);
+run("Inverse FFT");
+run("Flip Horizontally");
+
+
+
+makeRectangle(width1, height1, width1, height1);
+run("Crop");
+saveAs("Tiff", mainfolderpath + File.separator + "kymograph" + File.separator + "kymograph_"+ j + File.separator + "kymograph_" + j + " filtered_backward.tif");
+rename("backward filtered");
+getStatistics(area, mean, min_backward, max_backward, std, histogram);
+
+
+selectWindow("FFT of filter backward");
+close();
+selectWindow("filter backward");
+close();
+
+selectWindow("static");
+makeRectangle(0, 0, 3*width1, 3*height1); 
+run("FFT");
+fillRect(0, 0, width, height/2-2);
+fillRect(0, height/2+2, width, height/2-2);
+run("Inverse FFT");
+
+
+makeRectangle(width1, height1, width1, height1);
+run("Crop");
+saveAs("Tiff", mainfolderpath + File.separator + "kymograph" + File.separator + "kymograph_"+ j + File.separator + "kymograph_" + j + " static.tif");
+rename("static filtered");
+getStatistics(area, mean, min_static, max_static, std, histogram);
+
+selectWindow("FFT of static");
+close();
+selectWindow("static");
+close();
+
+maximum = maxOf(max_backward,max_forward);
+minimum = minOf(min_backward,min_forward);
+
+selectWindow("static filtered");
+setMinAndMax(min_static, max_static);
+selectWindow("forward filtered");
+setMinAndMax(minimum, maximum);
+selectWindow("backward filtered");
+setMinAndMax(minimum, maximum);
+
+run("Merge Channels...", "c1=[forward filtered] c2=[backward filtered] c3=[static filtered] create");
+saveAs("Tiff", mainfolderpath + File.separator + "kymograph" + File.separator + "kymograph_"+ j + File.separator + "kymograph_" + j + " color coded directions.tif");
+
+
+setBatchMode(false);
+selectImage(seqID);
+run("Select None");
+open(mainfolderpath + File.separator + "kymograph" + File.separator + "kymograph_"+ j + File.separator + "kymograph" + j + ".tif");
+open(mainfolderpath + File.separator + "kymograph" + File.separator + "kymograph_"+ j + File.separator + "kymograph_" + j + " filtered_forward.tif");
+open(mainfolderpath + File.separator + "kymograph" + File.separator + "kymograph_"+ j + File.separator + "kymograph_" + j + " filtered_backward.tif");
+open(mainfolderpath + File.separator + "kymograph" + File.separator + "kymograph_"+ j + File.separator + "kymograph_" + j + " static.tif");
+
+setTool("zoom");
+run("Tile");
+
+}
+
+
+
+/*************************************************************************************************/
+
+macro "Kymograph generation Action Tool [F5]" {
+
+
+requires("1.47a");
+
+activeimgtittle = getTitle();
+if (startsWith(activeimgtittle, "AVG_"))
+{selectWindow(substring(activeimgtittle,4));}
+if (startsWith(activeimgtittle, "MAX_"))
+{selectWindow(substring(activeimgtittle,4));}
+
+seqID = getImageID();
+setBatchMode(true);
+run("Restore Selection");
+run("Profile Plot Options...", "width=450 height=200 minimum=0 maximum=0 interpolate draw sub-pixel");
+run("Interpolate", "interval=1 smooth");
+  
+
+if (startsWith(File.getName(call("ij.io.OpenDialog.getDefaultDirectory")), "kymograph"))
+
+{if (startsWith(File.getName(File.getParent(call("ij.io.OpenDialog.getDefaultDirectory"))), "kymograph"))
+mainfolderpath = File.getParent(File.getParent((call("ij.io.OpenDialog.getDefaultDirectory"))));
+else mainfolderpath = File.getParent(call("ij.io.OpenDialog.getDefaultDirectory"));}
+
+else if (startsWith(File.getName(call("ij.io.OpenDialog.getDefaultDirectory")), "backward"))
+mainfolderpath = File.getParent(File.getParent(File.getParent(call("ij.io.OpenDialog.getDefaultDirectory"))));
+
+else if (startsWith(File.getName(call("ij.io.OpenDialog.getDefaultDirectory")), "forward"))
+mainfolderpath = File.getParent(File.getParent(File.getParent(call("ij.io.OpenDialog.getDefaultDirectory"))));
+
+else mainfolderpath = call("ij.io.OpenDialog.getDefaultDirectory");
+
+
+if (File.exists(mainfolderpath + File.separator + "kymograph")!=1) {
+	File.makeDirectory(mainfolderpath + File.separator + "kymograph");
+}
+
+
+	i = 1;
+	j = 1;
+  while (File.exists(mainfolderpath + File.separator + "kymograph" + File.separator + "Segment_kymograph_"+ i +".txt")==1) {	
+    	i = i + 1;
+	j = i;
+  }
+
+File.makeDirectory(mainfolderpath + File.separator + "kymograph" + File.separator + "kymograph_"+ j);
+
+saveAs("XY Coordinates", mainfolderpath  + File.separator + "kymograph" + File.separator + "Segment_kymograph_" + j + ".txt");
+
+/////////////// Line width
+
+			chosen_linewidth = getNumber("type a line width:", chosen_linewidth);
+			run("Line Width...", "line=" + chosen_linewidth);
+
+			f_linewidth = File.open( mainfolderpath + File.separator + "kymograph" + File.separator + "kymograph_"+ j + File.separator + "linewidth" + chosen_linewidth + ".txt");
+
+			File.close(f_linewidth);
+			
+/////////////// Retrieve segment from the saved file
+			
+	fkymosegment = File.openAsString(mainfolderpath  + File.separator + "kymograph" + File.separator + "Segment_kymograph_" + j + ".txt");
+
+	rows=split(fkymosegment, "\n"); 
+	x=newArray(rows.length); 
+	y=newArray(rows.length); 
+	for(m=0; m<rows.length; m++){ 
+	columns=split(rows[m],"\t"); 
+	x[m]=parseFloat(columns[0]); 
+	y[m]=parseFloat(columns[1]); 
+	}
+	toUnscaled(x, y);
+
+
+
+File.saveString("", mainfolderpath + File.separator + "kymograph" + File.separator + "kymograph_"+ j + File.separator + "kymograph" + j + ".txt") 
+
+getDimensions(width1, height1, channels, slices, frames);
+
+f = File.open( mainfolderpath + File.separator + "kymograph" + File.separator + "kymograph_"+ j + File.separator + "kymograph" + j + ".txt");
+
+   for (k=1; k<slices+1; k++)
+	{
+	
+		setSlice(k);
+		
+		makeSelection("polyline", x, y);
+		profile = getProfile();
+
+		string="";
+		for (l=0; l<lengthOf(profile); l++) {
+			if (l==0) {
+				string=string+profile[l];
+			} else {
+				string=string+"\t"+profile[l];
+			}
+			
+		}
+		print(f, string);
+  	}
+File.close(f);
+
+run("Line Width...", "line=1");
+
+run("Text Image... ", "open=[" + mainfolderpath + File.separator + "kymograph" + File.separator + "kymograph_"+ j + File.separator + "kymograph" + j + ".txt]");
+makeRectangle(1, 0, lengthOf(profile), slices); ///********** this line and the next one are used to delete the first column of the kymograph which does not make sense most of the time (known problem from ImageJ) ********////
+run("Crop");
+
+selectWindow("kymograph" + j + ".txt");
+
+
+
+saveAs("Tiff", mainfolderpath + File.separator + "kymograph" + File.separator + "kymograph_"+ j + File.separator + "kymograph" + j + ".tif");
+rename("kymograph" + j);
+setTool("zoom");
+
+
+// creation of paved kymograph to reduce edge issues
+
+
+run("Duplicate...", "title=subFourier1");
+run("Duplicate...", "title=subFourier2");
+run("Duplicate...", "title=subFourier3");
+run("Duplicate...", "title=subFourier4");
+
+selectWindow("subFourier2");
+run("Flip Horizontally");
+
+selectWindow("subFourier3");
+run("Flip Horizontally");
+run("Flip Vertically");
+
+selectWindow("subFourier4");
+run("Flip Vertically");
+
+
+setColor(0);
+selectWindow("subFourier1");
+run("Copy");
+getDimensions(width1, height1, channels, slices, frames);
+
+newImage("filter forward", "16-bit Black", 3*width1, 3*height1,1);
+
+ 
+makeRectangle(width1, height1, width1, height1); 
+run("Paste"); 
+
+selectWindow("subFourier2");
+run("Copy");
+selectWindow("filter forward");
+makeRectangle(0, height1, width1, height1); 
+run("Paste"); 
+makeRectangle(2*width1, height1, width1, height1); 
+run("Paste");
+
+selectWindow("subFourier3");
+run("Copy");
+selectWindow("filter forward");
+makeRectangle(0, 0, width1, height1); 
+run("Paste"); 
+makeRectangle(2*width1, 0, width1, height1); 
+run("Paste");
+makeRectangle(0, 2*height1, width1, height1); 
+run("Paste"); 
+makeRectangle(2*width1, 2*height1, width1, height1); 
+run("Paste");
+
+selectWindow("subFourier4");
+run("Copy");
+selectWindow("filter forward");
+makeRectangle(width1, 0, width1, height1); 
+run("Paste"); 
+makeRectangle(width1, 2*height1, width1, height1); 
+run("Paste");
+
+selectWindow("subFourier1");
+close();
+selectWindow("subFourier2");
+close();
+selectWindow("subFourier3");
+close();
+selectWindow("subFourier4");
+close();
+
+makeRectangle(0, 0, 3*width1, 3*height1); 
+newImage("filter backward", "16-bit Black", 3*width1, 3*height1,1);
+newImage("static", "16-bit Black", 3*width1, 3*height1,1);
+
+selectWindow("filter forward");
+makeRectangle(0, 0, 3*width1, 3*height1); 
+run("Copy");
+selectWindow("filter backward");
+run("Paste");
+selectWindow("static");
+run("Paste");
+
+selectWindow("filter forward");
+run("FFT");
+getDimensions(width, height, channels, slices, frames);
+fillRect(width/2, height/2-1, width/2, height/2+1);
+fillRect(0, 0, width/2, height/2+1);
+run("Inverse FFT");
+
+makeRectangle(width1, height1, width1, height1);
+run("Crop");
+saveAs("Tiff", mainfolderpath + File.separator + "kymograph" + File.separator + "kymograph_"+ j + File.separator + "kymograph_" + j + " filtered_forward.tif");
+rename("forward filtered");
+getStatistics(area, mean, min_forward, max_forward, std, histogram);
+
+selectWindow("FFT of filter forward");
+close();
+selectWindow("filter forward");
+close();
+
+selectWindow("filter backward");
+makeRectangle(0, 0, 3*width1, 3*height1); 
+run("Flip Horizontally");
+
+run("FFT");
+fillRect(width/2, height/2-1, width/2, height/2+1);
+fillRect(0, 0, width/2, height/2+1);
+run("Inverse FFT");
+run("Flip Horizontally");
+
+
+
+makeRectangle(width1, height1, width1, height1);
+run("Crop");
+saveAs("Tiff", mainfolderpath + File.separator + "kymograph" + File.separator + "kymograph_"+ j + File.separator + "kymograph_" + j + " filtered_backward.tif");
+rename("backward filtered");
+getStatistics(area, mean, min_backward, max_backward, std, histogram);
+
+
+selectWindow("FFT of filter backward");
+close();
+selectWindow("filter backward");
+close();
+
+selectWindow("static");
+makeRectangle(0, 0, 3*width1, 3*height1); 
+run("FFT");
+fillRect(0, 0, width, height/2-2);
+fillRect(0, height/2+2, width, height/2-2);
+run("Inverse FFT");
+
+
+makeRectangle(width1, height1, width1, height1);
+run("Crop");
+saveAs("Tiff", mainfolderpath + File.separator + "kymograph" + File.separator + "kymograph_"+ j + File.separator + "kymograph_" + j + " static.tif");
+rename("static filtered");
+getStatistics(area, mean, min_static, max_static, std, histogram);
+
+selectWindow("FFT of static");
+close();
+selectWindow("static");
+close();
+
+maximum = maxOf(max_backward,max_forward);
+minimum = minOf(min_backward,min_forward);
+
+selectWindow("static filtered");
+setMinAndMax(min_static, max_static);
+selectWindow("forward filtered");
+setMinAndMax(minimum, maximum);
+selectWindow("backward filtered");
+setMinAndMax(minimum, maximum);
+
+run("Merge Channels...", "c1=[forward filtered] c2=[backward filtered] c3=[static filtered] create");
+saveAs("Tiff", mainfolderpath + File.separator + "kymograph" + File.separator + "kymograph_"+ j + File.separator + "kymograph_" + j + " color coded directions.tif");
+
+
+setBatchMode(false);
+selectImage(seqID);
+run("Select None");
+open(mainfolderpath + File.separator + "kymograph" + File.separator + "kymograph_"+ j + File.separator + "kymograph" + j + ".tif");
+open(mainfolderpath + File.separator + "kymograph" + File.separator + "kymograph_"+ j + File.separator + "kymograph_" + j + " filtered_forward.tif");
+open(mainfolderpath + File.separator + "kymograph" + File.separator + "kymograph_"+ j + File.separator + "kymograph_" + j + " filtered_backward.tif");
+open(mainfolderpath + File.separator + "kymograph" + File.separator + "kymograph_"+ j + File.separator + "kymograph_" + j + " static.tif");
+
+setTool("zoom");
+run("Tile");
+
+
+}
+
+
+
+/*************************************************************************************************/
+
+
+macro "Background [F6] Action Tool - C666 T0908B T6908a Ta908c Td908k T0f08g T5f08r T7f08o Tbf08n Tff08d" {
+
+if (File.getName(call("ij.io.OpenDialog.getDefaultDirectory"))== "kymograph")
+mainfolderpath = File.getParent(call("ij.io.OpenDialog.getDefaultDirectory"));
+else if (startsWith(File.getName(call("ij.io.OpenDialog.getDefaultDirectory")), "kymograph_"))
+mainfolderpath = File.getParent(File.getParent(call("ij.io.OpenDialog.getDefaultDirectory")));
+else if (File.getName(call("ij.io.OpenDialog.getDefaultDirectory"))== "forward_transport")
+mainfolderpath = File.getParent(File.getParent(File.getParent(call("ij.io.OpenDialog.getDefaultDirectory"))));
+else if (File.getName(call("ij.io.OpenDialog.getDefaultDirectory"))== "backward_transport")
+mainfolderpath = File.getParent(File.getParent(File.getParent(call("ij.io.OpenDialog.getDefaultDirectory"))));
+else
+mainfolderpath= getDirectory("Please select the folder containing your image sequence");
+
+
+if (File.exists(mainfolderpath + File.separator + "kymograph")!=1) {
+	File.makeDirectory(mainfolderpath + File.separator + "kymograph");
+}
+
+
+File.saveString(" ", mainfolderpath + File.separator + "kymograph" + File.separator + "background.txt") 
+
+getDimensions(width1, height1, channels, slices, frames);
+
+
+   f = File.open(mainfolderpath + File.separator + "kymograph" + File.separator + "background.txt");
+
+   for (i=1; i<slices+1; i++)
+	{
+
+setSlice(i);
+getStatistics(area, mean, min, max, std, histogram);
+print(f, i + "  \t" + mean);
+  	}
+
+
+}
+
+/*************************************************************************************************/
+
+
+macro "Background Action Tool [F6]" {
+
+if (File.getName(call("ij.io.OpenDialog.getDefaultDirectory"))== "kymograph")
+mainfolderpath = File.getParent(call("ij.io.OpenDialog.getDefaultDirectory"));
+else if (startsWith(File.getName(call("ij.io.OpenDialog.getDefaultDirectory")), "kymograph_"))
+mainfolderpath = File.getParent(File.getParent(call("ij.io.OpenDialog.getDefaultDirectory")));
+else if (File.getName(call("ij.io.OpenDialog.getDefaultDirectory"))== "forward_transport")
+mainfolderpath = File.getParent(File.getParent(File.getParent(call("ij.io.OpenDialog.getDefaultDirectory"))));
+else if (File.getName(call("ij.io.OpenDialog.getDefaultDirectory"))== "backward_transport")
+mainfolderpath = File.getParent(File.getParent(File.getParent(call("ij.io.OpenDialog.getDefaultDirectory"))));
+else
+mainfolderpath= getDirectory("Please select the folder containing your image sequence");
+
+
+if (File.exists(mainfolderpath + File.separator + "kymograph")!=1) {
+	File.makeDirectory(mainfolderpath + File.separator + "kymograph");
+}
+
+
+File.saveString(" ", mainfolderpath + File.separator + "kymograph" + File.separator + "background.txt") 
+
+getDimensions(width1, height1, channels, slices, frames);
+
+
+   f = File.open(mainfolderpath + File.separator + "kymograph" + File.separator + "background.txt");
+
+   for (i=1; i<slices+1; i++)
+	{
+
+setSlice(i);
+getStatistics(area, mean, min, max, std, histogram);
+print(f, i + "  \t" + mean);
+  	}
+
+
+}
+
+
+/*************************************************************************************************/
+
+
+
+macro "Forward motion line [F7] Action Tool -  Cc00 T0709L T6709i T8709n Td709e T1f09f T6f09w Tdf09d" {
+
+
+if (File.getName(call("ij.io.OpenDialog.getDefaultDirectory"))== "forward_particles")
+kymoname = File.getParent(call("ij.io.OpenDialog.getDefaultDirectory"));
+else if (File.getName(call("ij.io.OpenDialog.getDefaultDirectory"))== "backward_particles")
+kymoname = File.getParent(call("ij.io.OpenDialog.getDefaultDirectory"));
+else if (startsWith(File.getName(call("ij.io.OpenDialog.getDefaultDirectory")), "kymograph_"))
+kymoname = call("ij.io.OpenDialog.getDefaultDirectory");
+else
+kymoname = getDirectory("Please select the folder containing your kymograph");
+
+
+if (File.exists(kymoname + File.separator + "forward_particles")!=1) {
+	File.makeDirectory(kymoname + File.separator + "forward_particles");
+}
+
+
+
+	i = 1;
+	j = 1;
+  while (File.exists(kymoname + File.separator + "forward_particles" + File.separator + "kymograph_line_" + i +".txt")==1) {	
+   	i = i + 1;
+	j = i;  }
+
+saveAs("XY Coordinates",kymoname + File.separator + "forward_particles" + File.separator + "kymograph_line_" + j + ".txt");
+
+    }
+
+	
+/*************************************************************************************************/
+
+
+macro "Backward motion line [F8] Action Tool - C00c T0709L T6709i T8709n Td709e T0f09b T6f09w Tdf09d " {
+
+
+if (File.getName(call("ij.io.OpenDialog.getDefaultDirectory"))== "forward_particles")
+kymoname = File.getParent(call("ij.io.OpenDialog.getDefaultDirectory"));
+else if (File.getName(call("ij.io.OpenDialog.getDefaultDirectory"))== "backward_particles")
+kymoname = File.getParent(call("ij.io.OpenDialog.getDefaultDirectory"));
+else if (startsWith(File.getName(call("ij.io.OpenDialog.getDefaultDirectory")), "kymograph_"))
+kymoname = call("ij.io.OpenDialog.getDefaultDirectory");
+else
+kymoname = getDirectory("Please select the folder containing your kymograph");
+
+
+if (File.exists(kymoname + File.separator + "backward_particles")!=1) {
+	File.makeDirectory(kymoname + File.separator + "backward_particles");
+}
+
+	i = 1;
+	j = 1;
+  while (File.exists(kymoname + File.separator + "backward_particles" + File.separator + "kymograph_line_" + i +".txt")==1) {	
+   	i = i + 1;
+	j = i;  }
+
+saveAs("XY Coordinates",kymoname + File.separator + "backward_particles" + File.separator + "kymograph_line_" + j + ".txt");
+
+    }
+
+
+	
+/*************************************************************************************************/
+
+macro "Forward motion line Action Tool [F7]" {
+
+
+if (File.getName(call("ij.io.OpenDialog.getDefaultDirectory"))== "forward_particles")
+kymoname = File.getParent(call("ij.io.OpenDialog.getDefaultDirectory"));
+else if (File.getName(call("ij.io.OpenDialog.getDefaultDirectory"))== "backward_particles")
+kymoname = File.getParent(call("ij.io.OpenDialog.getDefaultDirectory"));
+else if (startsWith(File.getName(call("ij.io.OpenDialog.getDefaultDirectory")), "kymograph_"))
+kymoname = call("ij.io.OpenDialog.getDefaultDirectory");
+else
+kymoname = getDirectory("Please select the folder containing your kymograph");
+
+
+if (File.exists(kymoname + File.separator + "forward_particles")!=1) {
+	File.makeDirectory(kymoname + File.separator + "forward_particles");
+}
+
+
+
+	i = 1;
+	j = 1;
+  while (File.exists(kymoname + File.separator + "forward_particles" + File.separator + "kymograph_line_" + i +".txt")==1) {	
+   	i = i + 1;
+	j = i;  }
+
+saveAs("XY Coordinates",kymoname + File.separator + "forward_particles" + File.separator + "kymograph_line_" + j + ".txt");
+
+    }
+
+	
+/*************************************************************************************************/
+
+
+macro "Backward motion line Action Tool [F8]" {
+
+
+if (File.getName(call("ij.io.OpenDialog.getDefaultDirectory"))== "forward_particles")
+kymoname = File.getParent(call("ij.io.OpenDialog.getDefaultDirectory"));
+else if (File.getName(call("ij.io.OpenDialog.getDefaultDirectory"))== "backward_particles")
+kymoname = File.getParent(call("ij.io.OpenDialog.getDefaultDirectory"));
+else if (startsWith(File.getName(call("ij.io.OpenDialog.getDefaultDirectory")), "kymograph_"))
+kymoname = call("ij.io.OpenDialog.getDefaultDirectory");
+else
+kymoname = getDirectory("Please select the folder containing your kymograph");
+
+
+if (File.exists(kymoname + File.separator + "backward_particles")!=1) {
+	File.makeDirectory(kymoname + File.separator + "backward_particles");
+}
+
+	i = 1;
+	j = 1;
+  while (File.exists(kymoname + File.separator + "backward_particles" + File.separator + "kymograph_line_" + i +".txt")==1) {	
+   	i = i + 1;
+	j = i;  }
+
+saveAs("XY Coordinates",kymoname + File.separator + "backward_particles" + File.separator + "kymograph_line_" + j + ".txt");
+
+    }
+
+
+	
+/*************************************************************************************************/
