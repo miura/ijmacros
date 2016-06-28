@@ -1,0 +1,34 @@
+//070112 Kota Miura
+// coded for nagasawa@ICU to measure hypocotyle curvature
+
+//Demo macro from ImageJ web site
+macro "List XY Coordinates" {
+     requires("1.30k");
+     getSelectionCoordinates(x, y);
+     for (i=0; i<x.length; i++)
+         print(i+" "+x[i]+" "+y[i]);
+}
+
+
+//Calculate curvature index (segmented line selection, then execute "Calculate curvature index")
+// curvature index = toal selection length / distance between two ends. 
+// there should be only one curvature. 
+
+macro "Calculate curvature index" {
+	requires("1.30k");
+	print("----------------------------");
+	getSelectionCoordinates(x, y);
+	start_end= retRoot_SQ(x[0], y[0], x[x.length-1], y[y.length-1]);
+	print("net distance="+start_end+" pixels");
+	total=0;
+	for (i=0; i<(x.length-1); i++) {
+		total=total+retRoot_SQ(x[i], y[i], x[i+1], y[i+1]);	
+	}
+	print("total distance ="+total+" pixels");
+	print("Curvature Index="+(total/start_end));
+} 
+
+function retRoot_SQ(x1, y1, x2, y2) {
+	val = pow(pow((x2-x1),2)+pow((y2-y1),2), 0.5);
+	return val;
+}

@@ -1,0 +1,82 @@
+// Tracker Helper 
+//Kota Miura 040504
+//
+// following macro is for converting "Track_ROIinfo.tif" file to a new version.
+// detail:	in the earlier version, each RoiID used 3 lines for its information (roi coordinate, x, y). 
+//	The new format is 5 lines (roi coordinate, x, y,z,blank). 
+//	For using old version info window in the updated program, the old version must be 
+//	converted to a new one.
+
+// instruction: open "old"Track_ROIinfo.tif file. While this window is active, do "Transform Old to New"
+//		form the macro menu. 
+//		data will be transferred, and then the old file will be automatically closed.
+//		Please save the new one, overwriting the old version.
+
+function Create_ROI_Recording_Frame() {
+	run("New...", "name=Track_ROIinfo.tif type=16-bit fill=White width=200 height=150 slices=1");
+}
+
+function Return_ROI_info(RoiID,roiinfoA,xA,yA) {
+	ww=getWidth();
+	currentInfoColinfo=(RoiID-1)*3;
+	currentInfoColx=(RoiID-1)*3+1;
+	currentInfoColy=(RoiID-1)*3+2;
+	for(i=0;i<7;i++) {
+		roiinfoA[i]=getPixel(i,currentInfoColinfo);	
+	}
+	for(i=0;i<ww;i++) {
+		xA[i]=getPixel(i,currentInfoColx);	
+		yA[i]=getPixel(i,currentInfoColy);	
+	}
+}
+
+
+function recordInfo(RoiID,roiinfoA) {
+	infoCol=(RoiID-1)*5;
+	for(i=0;i<7;i++) {
+		setPixel(i,infoCol,roiinfoA[i]);
+	}
+}
+
+function recordACoord(RoiID,xpos,ypos,i) {
+	xCol=(RoiID-1)*5+1;
+	yCol=(RoiID-1)*5+2;
+	setPixel(i,xCol,xpos);
+	setPixel(i,yCol,ypos);
+}
+
+
+function recordCoordArray(RoiID,xA,yA) {
+	size=xA.length;
+	for(i=0;i<size;i++) {
+		recordACoord(RoiID,xA[i],yA[i],i);
+	}	
+} 
+
+
+function TransferROIinfoOldTONew() {
+	selectWindow("Track_ROIinfo.tif");
+	oldID=getImageID();
+	wwold=getWidth();
+	whold=getHeight();
+	Create_ROI_Recording_Frame();
+	newID=getImageID();
+
+	copyL=floor(whold/3);
+	roiinfoA=newArray(10);
+	xA=newArray(wwold);
+	yA=newArray(wwold);
+	for (i=1;i<copyL+2;i++) {
+		selectImage(oldID);
+		Return_ROI_info(i,roiinfoA,xA,yA);
+		selectImage(newID);
+		recordInfo(i,roiinfoA);		
+		recordCoordArray(i,xA,yA);		
+	}
+	selectImage(oldID);
+	run("Close");
+}
+
+macro "Transform Old to New" {
+      TransferROIinfoOldTONew();
+  }

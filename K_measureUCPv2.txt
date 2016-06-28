@@ -1,0 +1,294 @@
+//for measureing microcontact cells
+//Kota Miura
+//041101 started making macro
+//041115 macro "Rotate Stored Angle [f6]" added
+
+
+var CellID=0;
+var square_x=newArray(200);
+var square_y=newArray(200);
+var square_area=newArray(200);
+var nucleus_x=newArray(200);
+var nucleus_y=newArray(200);
+var nucleus_area=newArray(200);
+var C_Nangle=newArray(200);
+var roih=30;
+var roiw=30;
+var angle=0;	//041115
+var roix;
+var roiy;
+var substrateID;
+var nucleusID;
+var substrateTitle;
+var nucleusTitle;
+
+
+macro "Set Cell ID [f1]" {
+	CellID=getNumber("Cell ID?",CellID);
+	messagestring="Cell ID set to:"+CellID;
+	print(messagestring);	
+}
+
+//041115 modified to record the position
+macro "Set Square ROI size [f2]" {
+	if (selectionType()==0) {
+		getBoundingRect(roix, roiy, roiw, roih);
+		messagestring="Rec. ROI size set to w:"+roiw+" h:"+roih;
+		print(messagestring);	
+	}	else 
+		showMessage("Error","You need a rectangular selection");
+}
+
+macro "make Rec. ROI [f3]"{
+	//makeRectangle(getWidth()/2, getHeight()/2, roiw, roih);
+	makeRectangle(roix, roiy, roiw, roih);
+} 
+
+macro "-"{}
+
+function IncreaseCanvasRotate(angle) {
+	run("Select All");
+	ow=getWidth();
+	oh=getHeight();
+	radAngle=angle/360*2*3.1415;
+	nw=sin(radAngle)*oh+cos(radAngle)*ow;
+	nh=sin(radAngle)*ow+cos(radAngle)*oh;
+	op="width="+nw+" height="+nh+" position=Center";
+	run("Canvas Size...", op);
+	run("Select All");
+	op="angle="+angle+" interpolate";
+	run("Arbitrarily...", op);	
+}
+
+//macro "test Rotate"{
+//	angle=getNumber("rotate angle?",0);
+//	IncreaseCanvasRotate(angle);
+//}
+
+function measureAngleReturn() {
+	run("Clear Results");
+	run("Measure");
+	angle=getResult("Angle", 0);
+	return angle;	
+}
+
+macro "Measure & Rotate [f5]"{
+	if (selectionType()==5) {
+		mangle=measureAngleReturn();
+		winname=getTitle();
+		angle=mangle-floor(mangle/90)*90;
+		IncreaseCanvasRotate(angle);
+		messagestring=winname+" -- rotated:"+angle+"(deg)";
+		print(messagestring);
+		substrateID=getImageID();
+		substrateTitle=getTitle();
+	} else 
+		showMessage("Error","You need a straight line selection");
+}
+
+
+//macro "List XY Coordinates" {
+ //    requires("1.30k");
+//     getSelectionCoordinates(x, y);
+//     for (i=0; i<x.length; i++)
+//         print(i+" "+x[i]+" "+y[i]);
+//}
+
+macro "-"{}
+
+macro "Measure Cell Centroid [f9]" {
+	MeasureCellcore();
+	//setTool(1);
+}
+
+function MeasureCellcore() {
+	setFont( "SansSerif", 24);
+	if (selectionType()==0) {
+		run("Clear Results");
+		run("Set Measurements...", "area mean centroid perimeter limit redirect=None decimal=1");
+		run("Measure");
+		cellx=getResult("X", 0);
+		celly=getResult("Y", 0);
+		square_x[CellID]=cellx;
+		square_y[CellID]=celly;
+		square_area[CellID]=getResult("Area", 0);	
+		drawString(CellID, cellx-roiw/2, celly-roih/2);
+		updateDisplay();
+		messagestring="Cell ID:"+CellID+"Cell Centroid X:"+cellx+" Y:"+celly+" Area:"+square_area[CellID];
+		print(messagestring);
+		if (nucleusID!=0) {
+			selectImage(nucleusID);
+			setTool(8);
+		}
+	} else 
+		showMessage("Error","You need a rectangular selection");
+
+}
+
+macro "-"{}
+
+//041115
+macro "Auto Threshold & Rotate [f11]" {
+	run("OtsuThresReturnNumber ");
+		winname=getTitle();
+		IncreaseCanvasRotate(angle);
+		messagestring=winname+" -- rotated:"+angle+"(deg)";
+		print(messagestring);
+		nucleusID=getImageID();
+		nucleusTitle=winname;	//getTitle();
+		//setTool(1);
+		op="red="+nucleusTitle+" green="+substrateTitle+" blue=*None* keep";
+		run("RGB Merge...", op);
+}
+
+
+macro "-"{}
+
+//041115
+macro "Manual Threshold" {
+	run("Threshold...");
+}
+
+
+//041115
+macro "Rotate Stored Angle"{
+		winname=getTitle();
+		IncreaseCanvasRotate(angle);
+		messagestring=winname+" -- rotated:"+angle+"(deg)";
+		print(messagestring);
+}
+
+
+macro "-"{}
+
+macro "Measure Nucleus Centroid [f10]" {
+	run("Set Scale...", "distance=1 known=1 pixel=1 unit=pixels global");
+	MeasureNucleusCore();
+	CellID++;
+	messagestring="Cell ID set to:"+CellID;
+	print(messagestring);
+	makeRectangle(getWidth()/2, getHeight()/2, roiw, roih);	
+}
+
+function MeasureNucleusCore() {
+	if (selectionType()==1) {
+		run("Clear Results");
+		run("Set Measurements...", "area mean centroid perimeter limit redirect=None decimal=1");
+		run("Measure");
+		nucx=getResult("X", 0);
+		nucy=getResult("Y", 0);
+		nucleus_x[CellID]=nucx;
+		nucleus_y[CellID]=nucy;	
+		nucarea=getResult("Area", 0);
+		nucleus_area[CellID]=nucarea;
+		messagestring="Cell ID:"+CellID+"Nucleus Centroid X:"+nucx+" Y:"+nucy+" Area:"+nucarea;
+		print(messagestring);
+		C_Nangle[CellID]=MeasureCellNucAngle();
+	} else 
+		showMessage("Error","You need a oval (circular) selection");
+}
+
+//041115
+macro "Measure Nucleus Centroid Hoechist [f12]" {
+	run("Set Scale...", "distance=1 known=1 pixel=1 unit=pixels global");
+	MeasureNucleusCore2();
+	CellID++;
+	messagestring="Cell ID set to:"+CellID;
+	print(messagestring);
+	//makeRectangle(getWidth()/2, getHeight()/2, roiw, roih);	
+}
+
+//041115
+function MeasureNucleusCore2() {
+	if (selectionType()==4) {		//4=traced
+		run("Clear Results");
+		run("Set Measurements...", "area mean centroid perimeter limit redirect=None decimal=1");
+		run("Measure");
+		nucx=getResult("X", 0);
+		nucy=getResult("Y", 0);
+		nucleus_x[CellID]=nucx;
+		nucleus_y[CellID]=nucy;	
+		nucarea=getResult("Area", 0);
+		nucleus_area[CellID]=nucarea;
+		messagestring="Cell ID:"+CellID+"Nucleus Centroid X:"+nucx+" Y:"+nucy+" Area:"+nucarea;
+		print(messagestring);
+		C_Nangle[CellID]=MeasureCellNucAngle();
+	} else 
+		showMessage("Error","You need a selection by wand tool. ");
+
+}
+
+
+
+function MeasureCellNucAngle() {
+	makeLine(square_x[CellID], square_y[CellID], nucleus_x[CellID], nucleus_y[CellID]);
+	CNangle=measureAngleReturn();
+	messagestring="Cell ID:"+CellID+" Cell Nucleus Angle:"+CNangle;
+	print(messagestring);
+
+	return CNangle;	
+}
+
+macro "test angle measure" {
+	MeasureCellNucAngle();
+}
+
+function determinListNumber(xA,yA) {
+	resultsnum=0;
+	for (i=0;i<xA.length;i++) {
+		if ((xA[i]==0) && (yA[i]==0)) {
+			resultsnum=i;
+			i=xA.length;
+		}
+	}
+	return resultsnum;
+}
+
+macro "Show Results in a table" {
+	showDistanceResults();
+}
+function showDistanceResults() {
+	cellresults=determinListNumber(square_x,square_y);
+	nucleusresults=determinListNumber(nucleus_x,nucleus_y);
+	run("Clear Results");
+	for (i=0;i<cellresults;i++) {
+		setResult("CellID",i,i);
+		setResult("CellArea",i,square_area[i]);
+		setResult("CellX",i,square_x[i]);
+		setResult("CellY",i,square_y[i]);
+		setResult("NucleusX",i,nucleus_x[i]);
+		setResult("NucleusY",i,nucleus_y[i]);
+		setResult("NucleusArea",i,nucleus_area[i]);
+		distance=sqrt(pow((square_x[i]-nucleus_x[i]),2)+pow((square_y[i]-nucleus_y[i]),2));			
+		setResult("D",i,distance);
+		setResult("NCangle",i,C_Nangle[i]);		
+	}
+	updateResults();
+	if (cellresults!=nucleusresults)
+		showMessage("Error","re-check data. Number Mismatch");
+}
+
+macro "-" {}
+//041112
+macro "Make Stack from Single Image for RGB" {
+	frames=getNumber("Frames?",500);
+	w=getWidth();
+	h=getHeight();
+	imageID=getImageID();
+	run("Select All");
+	run("Copy");
+	NewstackPara="name=dummystack type=8-bit fill=Black width="+w+" height="+h+" slices="+frames;
+	run("New...", NewstackPara);
+	stackID=getImageID();
+	//setBatchMode(true);
+	for(i=0; i<frames; i++) {
+//		selectImage(imageID);
+//		run("Select All");
+//		run("Copy");
+		selectImage(stackID);
+		op="slice="+(i+1);
+		run("Set Slice...", op);
+		run("Paste");
+	}
+	//setBatchMode(false);
+}	

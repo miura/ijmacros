@@ -1,0 +1,94 @@
+// fragments of macro for Elisa
+//Kota 070525
+// 1. saving results table to individual track table
+// 2. loading text files for tracks
+// 3. results table to array, array to results table
+
+//************************ 1. saving results table to individual track table
+
+// I actually don't have something similar, but combine
+
+//		getResults(column name, row number) // use for loop to go through results table with this
+//		resultsstring = frame + "\t" + xcoordinate + "\t" + ycoordinate
+//		print resultsstirng // out put the line above to "Log window"
+// 		//then do the above 3 lines for all rows by for or while loop
+// 
+//		run("Text...",op); // File>Save As>Text
+
+
+// ************************ 2. loading text files for tracks
+macro "Load Track File to Results"{
+ 	print("\\Clear");
+	run("Clear Results");
+	tempstr = File.openAsString("");
+	openedFile=File.name();
+	print(openedFile);
+	openedDirectory = File.directory;
+	Load2Results(openedDirectory, openedFile);
+}
+
+
+// can also use lines=split(str,"\n")  
+function Load2Results(openpath,openedFile) {
+	fullpathname=openpath+openedFile;
+	print(fullpathname);
+	tempstr = File.openAsString(fullpathname);
+	start_Index=0;
+	rowcounter = 0;
+	columnnumber = 4;
+	do {
+		for (i=0; i<columnnumber; i++) {
+			if (i==columnnumber-1) {
+				end_Index=indexOf(tempstr , "\n",start_Index);
+			} else {
+				end_Index=indexOf(tempstr , "\t",start_Index);
+			}
+			current_num = parseFloat(substring(tempstr , start_Index, end_Index));
+			//print (start_Index+" to "+ end_Index +" "+ current_num);
+			start_Index=end_Index+1;
+			trackname=substring(openedFile, 0, lengthOf(openedFile)-4);
+			if (i==0) setResult(trackname+"f", rowcounter , current_num);
+			if (i==1) setResult(trackname+"x", rowcounter , current_num);
+			if (i==2) setResult(trackname+"y", rowcounter , current_num);
+			if (i==3) setResult(trackname+"lin", rowcounter , current_num);
+		}
+		rowcounter++;
+	} while (start_Index<lengthOf(tempstr))
+	updateResults();
+}
+
+// ***************3. results table to array, array to results table
+
+// 	printouts array into multiple column.
+// 	length of the column is defined by segLength.
+// 	prefix of the column tiitle defined by string col_titlepre
+function output_MultipleResults(rA, heightA, segLength, col_titlepre) {
+	run("Clear Results");
+	columnnum=rA.length/segLength;
+	for(i = 0; i < columnnum; i++) {
+		currentColTitle1="int_"+ col_titlepre+(i+1);
+		currentColTitle2="Ycount_"+ col_titlepre+(i+1);
+		for(j = 0; j < segLength; j++) {
+	            	if (i==0) setResult("x", j, j);
+	           		setResult(currentColTitle1, j, rA[i * segLength + j]);
+	           		setResult(currentColTitle2, j, heightA[i * segLength + j]);
+		}
+	}
+	updateResults();
+}
+
+// 070223 retrieves data from result window and store them in Array
+function RetrieveResults(profileA,ylengthA,col_titlepre) {
+	x_width = nResults;
+	if (x_width != G_w) exit("Results table Missing or Modified");
+	ColumnSetNumber=profileA.length/x_width;
+	for (i=0; i<ColumnSetNumber; i++) {
+		currentColTitle1="int_"+ col_titlepre+(i+1);
+		currentColTitle2="Ycount_"+ col_titlepre+(i+1);
+		for (j=0; j< x_width; j++) {
+	            	//if (i==0) getResult("x", j, j);
+	           		profileA[i * x_width + j]=getResult(currentColTitle1, j);
+	           		ylengthA[i * x_width + j]=getResult(currentColTitle2, j);			
+		}
+	}
+}

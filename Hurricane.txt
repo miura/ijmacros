@@ -1,0 +1,76 @@
+//hurricane.txt: Copyright (c) 2005, Kota Miura. All rights reserved.
+//
+//	Author:Kota Miura (miura@embl.de)
+//	*** Redistribution of the following programs requires a permission of the author. ***************
+//	COMMENTS:
+//	Migrated from ScionImage macro (050719)
+//	"hurricane STACK" processes a stack with black background and white signals, 
+//	to add afterimage (or trace) of the movement.
+//	hurricane algorithm was originally made by Kota Miura (16.May.2000).
+
+requires("1.34r");
+
+//copied from Jens
+function check4stack() {
+	if (nSlices==0) exit("open a stack");
+}
+
+macro "Hurricane Stack" {
+	check4stack();
+  	stackPID=getImageID();
+	ww=getWidth();
+	wh=getHeight();
+	stackbit=bitDepth(); 
+	framenum=nSlices;
+	stnum=getNumber("Start from which frame No.?", 1);
+	endnum=getNumber("End with which frame No.?", framenum);
+	stepnum=getNumber("frame step number?", 1);
+	fadeout=getNumber("fade strength?", 3);
+	if (endnum>framenum) {
+		endnum=framenum;
+	}
+	tracednum=endnum-stnum;
+	GradStep=100*stepnum/(endnum-stnum);
+	setSlice(stnum);
+	run("Select All");
+	run("Copy");
+
+	newimagetypestr=""+stackbit+"-bit";
+	newImage("Current", newimagetypestr, ww, wh, 1);
+	currentframePID=getImageID();
+
+	newImage("Trace", newimagetypestr, ww, wh, 1);
+	tracePID=getImageID();
+	run("Paste");
+
+	newImage("Hurricane", newimagetypestr, ww, wh, 1);
+	hurricanePID=getImageID();
+	setBatchMode(true);
+
+	for (i=stnum;i<(endnum+1);i+=stepnum) {
+		selectImage(stackPID);
+		setSlice(i);
+		run("Select All");
+		run("Copy");
+		selectImage(currentframePID);
+		run("Paste");
+		imageCalculator("max", tracePID, currentframePID);
+		fadeop="slice value="+fadeout;
+		run("Subtract...", fadeop);
+		run("Select All");
+		run("Copy");
+		selectImage(hurricanePID);
+		run("Paste");
+		run("Add Slice");
+	}
+	selectImage(currentframePID);
+	close();
+	selectImage(tracePID);
+	close();
+	setBatchMode(false); 
+	selectImage(hurricanePID);
+	run("Delete Slice");
+}
+
+
+

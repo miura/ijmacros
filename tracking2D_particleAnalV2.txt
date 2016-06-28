@@ -1,0 +1,1470 @@
+// *************  Multi-Cell Tracker 2D (Particle Analysis Only) *************************************
+//-  Author: Kota Miura (miura@embl.de) 
+
+// 040503 Deviated from "Multi-Cell Tracker 2D" started 3D
+// 041203 seperate 2D functions here, from 3D functions.
+// 050503 Normalization vesrsion (Mvalue considered) for cross-cor
+// 0602 many additions, ROI ID setting by clicking, else. (Gaspar Phototaxis measurements)
+// 060302 smoothing of the correlation value planned 
+// 060320 particle analysis module corrected.
+// 060321  rename the file to "tracking2D_particleAnalv1.txt"
+// Modify so that the algoeithm does not contain cross-correlation. 
+// ROI starting from a small range, test for number of particles and if there is a particle, finish the enlargement.
+//	(analyze particle by "exclude edge touching") 
+//  use the position of that single particle for the next position. 
+//  if there is no particle upto the maximum scan range, then quit tracking. 
+// 060322 reorganize the flow of "track main", as documented in "Gaspar analysis" algorithm.  
+// 	should fix "overlay track in the stack". add dynamic tracks. 
+
+//******* Global Variables ***************
+var RoiCount;
+var celldetection_mode=4;	
+	// only cross-correlation (normalized) =0, only cross-correlation=1, center-of-mass=2, wand=3 particle track=4
+	// absolute difference
+var scanrange=10;
+var speedfactor=1;	//speed factor = delta-t*micrometer/pixel
+var deltaT=30;
+var micromPpix=1.3;
+var speedunit="pixels/frame";
+var space4substack=4;
+var particle_min=3;
+var pathname="";	//050502
+var substack_switch=0;
+var cc_threshold=0;
+var globalThreshold=30; //060208
+var areathres=2 //060321
+var persistence=2 //060321 should be greater than 2. less values will be considered as 0. 
+	//"3" means sample 2 intervals from last 3 points.
+var currentRoiID=1;
+
+//********* global variable controller**********
+
+// only cross-correlation=1, center-of-mass=2, wand=3, particle analysis=4
+// particle analysis is recommended for good contrast target object.
+macro "Set Cell Detection Mode" {
+	celldetection_mode=getNumber("Cell Detection Mode?",celldetection_mode);
+}
+
+//060321 this should be a maximum range for the assessment of particle number
+macro "Set Scan Range" {
+	scanrange=getNumber("Scan Range?",scanrange);
+}
+macro "Set Persistence" {
+	persistence=getNumber("Persistence?",persistence);
+	if (persistence<2) persistence=0;
+}
+
+macro "Set time interval and scale" {
+	deltaT=getNumber("Time Interval (sec)?",deltaT);
+	micromPpix=getNumber("Scale (micrometer per pixel)?",micromPpix);
+	speedfactor=micromPpix/deltaT*60;
+	speedunit="micormeter/min";
+}
+
+macro "Set particle minimum" {
+	particle_min=getNumber("particle Min?",particle_min);
+}
+
+macro "Print Status in Log Window" {
+	kPrintStates2D();
+}
+
+macro "Set global threshold" {
+	globalThreshold=getNumber("Global Threshold?",globalThreshold); //060302
+}
+
+macro "Substack on/off" {
+	substack_switch=getNumber("Substack?",substack_switch);
+}
+macro "cross Cor threshold" {
+	cc_threshold=getNumber("cross correlation Threshold? (0.0< <1.0)",cc_threshold);
+}
+macro '-' {} 
+
+//040425********************  ROI Modules***************************************************************
+// Records the ROI dimensions in a image file
+// maximum number of cell is 33, maximum coordinates are 200
+
+function Create_ROI_Recording_Frame() {
+	run("New...", "name=Track_ROIinfo.tif type=16-bit fill=White width=200 height=200 slices=1");
+}
+
+function setpixel(InfXpos,InfYpos,pixvalue) {
+	selectWindow("Track_ROIinfo.tif");
+	setPixel(InfXpos,InfYpos,pixvalue);
+}
+
+//first row: information on conditions //2nd row: x coordinates (results);
+//3rd row: y coordinates (results); //4th row: z coordinates (results);
+// for 3D //5th row: vacant
+
+function RegiROICore() {
+	getBoundingRect(roix, roiy, roiwidth, roiheight);
+	RoiID=getNumber("RoiID?",1);	
+	RoiThres=getNumber("Threshold?",50);
+	RoiStartFrame=getNumber("Start Frame?",1);
+	RoiEndFrame=getNumber("End Frame?",10);
+
+	currentImageID=getImageID();
+	//CheckRoiInfoWin=isOpen("Track_ROIinfo.tif");
+	if (!isOpen("Track_ROIinfo.tif")) {
+		Create_ROI_Recording_Frame();
+	}
+	selectWindow("Track_ROIinfo.tif");
+	currentInfoCol=(RoiID-1)*5;
+
+	setpixel(0,currentInfoCol,roix);
+	setpixel(1,currentInfoCol,roiy);
+	setpixel(2,currentInfoCol,roiwidth);
+	setpixel(3,currentInfoCol,roiheight);
+	setpixel(4,currentInfoCol,RoiThres);
+	setpixel(5,currentInfoCol,RoiStartFrame);
+	setpixel(6,currentInfoCol,RoiEndFrame);
+	for(i=0;i<RoiEndFrame-RoiStartFrame+1;i++) {		// for z-aray, put 1.
+		setpixel(6,currentInfoCol+3,1);
+	}
+	selectImage(currentImageID);
+}
+
+function RegiROIthresCore(RoiID,RoiThres) {
+	currentImageID=getImageID();
+	selectWindow("Track_ROIinfo.tif");
+	currentInfoCol=(RoiID-1)*5;
+	setpixel(4,currentInfoCol,RoiThres);
+	selectImage(currentImageID);
+}
+
+
+function RegiROIendCore(RoiID,RoiEndFrame) {
+	currentImageID=getImageID();
+	selectWindow("Track_ROIinfo.tif");
+	currentInfoCol=(RoiID-1)*5;
+	setpixel(6,currentInfoCol,RoiEndFrame);
+	selectImage(currentImageID);
+}
+
+macro "Register ROI [f5]" {
+	RegiROICore();
+}
+
+//060320
+function Record_parameters(RoiID){
+	currentImageID=getImageID();
+	selectWindow("Track_ROIinfo.tif");
+	currentInfoCol=(RoiID-1)*5;
+	setpixel(7,currentInfoCol,scanrange);
+	setpixel(8,currentInfoCol,celldetection_mode);
+	selectImage(currentImageID);
+}
+
+//040425
+// re-set the ROI according to the info file created by the registration.
+
+function Return_ROI_xpos(RoiID) {
+	currentImageID=getImageID();
+	selectWindow("Track_ROIinfo.tif");
+	currentInfoCol=(RoiID-1)*5;
+	xpos=getPixel(0,currentInfoCol);
+	selectImage(currentImageID);
+	return xpos
+}
+
+function Return_ROI_ypos(RoiID) {
+	currentImageID=getImageID();
+	selectWindow("Track_ROIinfo.tif");
+	currentInfoCol=(RoiID-1)*5;
+	ypos=getPixel(1,currentInfoCol);
+	selectImage(currentImageID);
+	return ypos;
+}
+
+function Return_ROI_width(RoiID) {
+	currentImageID=getImageID();
+	selectWindow("Track_ROIinfo.tif");
+	currentInfoCol=(RoiID-1)*5;
+	width=getPixel(2,currentInfoCol);
+	selectImage(currentImageID);
+	return width;
+}
+
+function Return_ROI_height(RoiID) {
+	currentImageID=getImageID();
+	selectWindow("Track_ROIinfo.tif");
+	currentInfoCol=(RoiID-1)*5;
+	height=getPixel(3,currentInfoCol);
+	selectImage(currentImageID);
+	return height;
+}
+
+function Return_ROI_threshold(RoiID) {
+	currentImageID=getImageID();
+	selectWindow("Track_ROIinfo.tif");
+	currentInfoCol=(RoiID-1)*5;
+	thres=getPixel(4,currentInfoCol);
+	selectImage(currentImageID);
+	return thres;
+}
+
+function Return_ROI_startf(RoiID) {
+	currentImageID=getImageID();
+	selectWindow("Track_ROIinfo.tif");
+	currentInfoCol=(RoiID-1)*5;
+	sf=getPixel(5,currentInfoCol);
+	selectImage(currentImageID);
+	return sf;
+}
+
+function Return_ROI_endf(RoiID) {
+	currentImageID=getImageID();
+	selectWindow("Track_ROIinfo.tif");
+	currentInfoCol=(RoiID-1)*5;
+	ef=getPixel(6,currentInfoCol);
+	selectImage(currentImageID);
+	return ef;
+}
+
+//060320
+function Return_ROI_scanR(RoiID) {
+	currentImageID=getImageID();
+	selectWindow("Track_ROIinfo.tif");
+	currentInfoCol=(RoiID-1)*5;
+	height=getPixel(7,currentInfoCol);
+	selectImage(currentImageID);
+	return height;
+}
+
+//060320
+function Return_ROI_Detctmode(RoiID) {
+	currentImageID=getImageID();
+	selectWindow("Track_ROIinfo.tif");
+	currentInfoCol=(RoiID-1)*5;
+	height=getPixel(8,currentInfoCol);
+	selectImage(currentImageID);
+	return height;
+}
+
+
+function Recreate_ROI_core(RoiID) {
+	currentImageID=getImageID();
+	selectWindow("Track_ROIinfo.tif");
+	currentInfoCol=(RoiID-1)*5;
+
+	roix=getPixel(0,currentInfoCol);
+	roiy=getPixel(1,currentInfoCol);
+	roiwidth=getPixel(2,currentInfoCol);
+	roiheight=getPixel(3,currentInfoCol);
+	selectImage(currentImageID);
+	makeRectangle(roix, roiy, roiwidth, roiheight);
+}
+
+function Recreate_ROI() {
+	if (!isOpen("Track_ROIinfo.tif")) {
+		showMessage("error","You Need a ROI info window!");
+	}
+	else {
+		RoiID=getNumber("RoiID?",1);
+		Recreate_ROI_core(RoiID);
+	}
+}
+
+macro "Recreate ROI [f6]" {
+	Recreate_ROI();
+}
+
+macro "ROI ID setter [F8]" {
+	run("Clear Results");
+	currentImageID=getImageID();
+	if (!isOpen("Track_ROIinfo.tif")) {
+		Create_ROI_Recording_Frame();
+	}
+	RoiID=getNumber("RoiID?",1);
+	selectImage(currentImageID);
+	RoiSetCoordinateRec(RoiID);
+}
+
+
+
+
+macro "ROI ID Info" {
+	if (!isOpen("Track_ROIinfo.tif")) {
+		showMessage("error","You Need a ROI info window!");
+	}
+	else {
+		RoiID=getNumber("RoiID?",1);
+		cur_thres=Return_ROI_threshold(RoiID);
+		cur_startf=Return_ROI_startf(RoiID);
+		cur_endf=Return_ROI_endf(RoiID);
+		cur_xpos=Return_ROI_xpos(RoiID);
+		cur_ypos=Return_ROI_ypos(RoiID);
+		cur_width=Return_ROI_width(RoiID);
+		cur_height=Return_ROI_height(RoiID);
+		cur_scanR=Return_ROI_scanR(RoiID);
+		cur_DetMode=Return_ROI_Detctmode(RoiID);
+	st_op="ROI ID"+RoiID+"  start:"+cur_startf+" end:"+cur_endf;
+	print(st_op);
+	st_op="Thres: "+cur_thres+" Scan Range: "+cur_scanR+" Detection Mode: "+cur_DetMode;
+	print(st_op);
+	st_op="x:"+cur_xpos+" y:"+cur_ypos+" width:"+cur_width+" height:"+cur_height;
+	print(st_op);
+
+	}
+}
+
+macro "RE-Register ROI Threshold" {
+	RoiID=getNumber("RoiID?",1);	
+	RoiThres=getNumber("Threshold?",50);
+	RegiROIthresCore(RoiID,RoiThres);
+}
+
+macro "RE-Register ROI endpoint [f9]" {
+	RoiID=getNumber("RoiID?",1);	
+	Roiend=getNumber("end frame?",50);
+	RegiROIendCore(RoiID,Roiend);
+}
+
+//****** For Recording Coordinates in the TrackROI_info window ***********
+
+function recordACoord(RoiID,xpos,ypos,i) {
+	xCol=(RoiID-1)*5+1;
+	yCol=(RoiID-1)*5+2;
+	setPixel(i,xCol,xpos);
+	setPixel(i,yCol,ypos);
+}
+
+
+function recordCoordArray(RoiID,xA,yA) {
+	currentImageID=getImageID();
+	if (!isOpen("Track_ROIinfo.tif")) {
+		Create_ROI_Recording_Frame();
+	}
+	selectWindow("Track_ROIinfo.tif");
+	size=xA.length;
+	for(i=0;i<size;i++) {
+		recordACoord(RoiID,xA[i],yA[i],i);
+	}	
+	selectImage(currentImageID);
+} 
+
+
+// 041203 excluded z coordinates and rename to ...2D
+function restoreCoordArray2D(RoiID,xA,yA) {
+	currentImageID=getImageID();
+	if (!isOpen("Track_ROIinfo.tif")) {
+		showMessageWithCancel("Abort","Track_ROIinfo.tif must be opend!");
+	}
+	selectWindow("Track_ROIinfo.tif");
+
+	currentInfoColx=(RoiID-1)*5+1;
+	currentInfoColy=(RoiID-1)*5+2;
+	//currentInfoColz=(RoiID-1)*5+3;
+
+	size=xA.length;
+	for(i=0;i<size;i++) {
+		xA[i]=getPixel(i,currentInfoColx);
+		yA[i]=getPixel(i,currentInfoColy);
+		//zA[i]=getPixel(i,currentInfoColz);
+	}	
+	selectImage(currentImageID);
+} 
+
+//*********************** add label to the Roi ********************************
+
+function Annote_checkBorderWidth(xpos) {
+	ww=getWidth();
+	leftbound=10;
+	rightbound=ww-10;
+	xshift=0;
+	if (xpos<leftbound) {
+		xshift=1;
+	}
+	if (xpos>rightbound) {
+		xshift=-1;
+	}	
+	return xshift;
+}
+
+function Annote_checkBorderHeight(ypos) {
+	wh=getHeight();
+	topbound=23;
+	bottombound=wh-23;
+	yshift=0;
+	if (ypos<topbound) {
+		yshift=1;
+	}
+	if (ypos>bottombound) {
+		yshift=-1;
+	}	
+	return yshift;
+}
+
+function Annote_ROI(RoiID) {
+		Recreate_ROI_core(RoiID);
+		getBoundingRect(roix, roiy, roiwidth, roiheight);
+		typex=roix+(roiwidth*Annote_checkBorderWidth(roix));
+		typey=roiy+(roiheight*Annote_checkBorderHeight(roiy));
+		setForegroundColor(255, 255, 255);
+		setBackgroundColor(0, 0, 0);
+		drawString(RoiID, typex, typey);		
+}
+
+macro "Print ROI number" {
+	if (!isOpen("Track_ROIinfo.tif")) {
+		showMessage("error","You Need a ROI info window!");
+	}
+	else {
+		sRoiID=getNumber("start RoiID?",1);
+		eRoiID=getNumber("start RoiID?",2);
+		for(i=sRoiID;i<eRoiID+1;i++) {
+			Annote_ROI(i);
+		}
+	}
+}
+
+
+
+
+
+macro "-"{}
+
+//************* track plotter 
+
+// Plot dots at the cell center.
+function PlotDotatCell(substackID,resultXroiA,resultYroiA,startframe,frames) {
+	selectImage(substackID);
+	//frames=nSlices;
+	endframe=startframe+frames;
+	run("RGB Color");
+	setForegroundColor(255,0,0);
+	//setColor(255,0,0);
+	for(i=startframe;i<endframe;i++) {
+		op="slice="+i;
+		run("Set Slice...", op);
+		spacerx=resultXroiA[i]+space4substack;
+		spacery=resultYroiA[i]+space4substack;
+		makeOval(spacerx, spacery, 1, 1);
+		run("Fill", "slice");
+	}
+	setForegroundColor(255, 255, 255);
+}
+
+//reffer to arrays
+//modified 'drawtrackCore2' 041206
+function drawtrackCore2_2D(drawframeID,xpa,ypa) {
+	selectImage(drawframeID);
+	run("RGB Color");
+	//setForegroundColor(TrackR,TrackG,TrackB);
+	size=xpa.length-1;
+	setColor(255,0,0);
+	for(i=0;i<size;i++) {
+		xa=xpa[i];
+		xb=xpa[i+1];
+		ya=ypa[i];
+		yb=ypa[i+1];
+		drawLine(xa, ya, xb, yb);
+	}
+	//setForegroundColor(255, 255, 255);
+}
+function DrawTrackAll(StartRoiID,EndRoiID,stackID) {
+	trackframeID=getImageID();
+	for(i=StartRoiID;i<EndRoiID+1;i++) {
+		startframe=Return_ROI_startf(i);
+		endframe=Return_ROI_endf(i);
+		coordArraysize=endframe-startframe+1;
+		resxA=newArray(coordArraysize);
+		resyA=newArray(coordArraysize);
+		//reszA=newArray(coordArraysize);
+		restoreCoordArray2D(i,resxA,resyA); //041206 modified
+		drawtrackCore2_2D(trackframeID,resxA,resyA);
+	}
+}
+
+macro "Draw All Tracks in a new Window" {
+	StartRoiID=getNumber("start RoiID",1);
+	EndRoiID=getNumber("end RoiID",2);
+	stackID=getImageID();
+	makeAcopyFrame(1);
+	DrawTrackAll(StartRoiID,EndRoiID,stackID)
+	//drawColorZ();
+}
+
+function DrawTrackAll_stack(StartRoiID,EndRoiID,stackID) {
+	selectImage(stackID);
+	frames=nSlices;
+	for(i=StartRoiID;i<EndRoiID+1;i++) {
+		startframe=Return_ROI_startf(i);
+		endframe=Return_ROI_endf(i);
+		coordArraysize=endframe-startframe+1;
+		resxA=newArray(coordArraysize);
+		resyA=newArray(coordArraysize);
+		reszA=newArray(coordArraysize);
+		//restoreCoordArray(i,resxA,resyA,reszA);
+		restoreCoordArray2D(i,resxA,resyA);
+		for(j=0;j<frames;j++) {
+			op="slice="+(j+1);
+			run("Set Slice...", op);		
+			drawtrackCore2_2D(stackID,resxA,resyA);
+			//drawColorZ();
+		}
+	}
+}
+
+macro "Draw All Tracks in a Stack" {
+	StartRoiID=getNumber("start RoiID",1);
+	EndRoiID=getNumber("end RoiID",2);
+	stackID=getImageID();
+	DrawTrackAll_stack(StartRoiID,EndRoiID,stackID);
+}
+
+function PlotTrackDynamic_stack(RoiID,stackID,paint) {
+	selectImage(stackID);
+	frames=nSlices;
+	startframe=Return_ROI_startf(RoiID);
+	endframe=Return_ROI_endf(RoiID);
+	coordArraysize=endframe-startframe+1;
+	resxA=newArray(coordArraysize);
+	resyA=newArray(coordArraysize);
+	reszA=newArray(coordArraysize);
+	restoreCoordArray2D(RoiID,resxA,resyA);	//041206
+	if (paint) {
+		 run("RGB Color");
+		setForegroundColor(255,0,0);
+	}
+	for(i=0;i<resxA.length;i++) {
+		op="slice="+(startframe+i);
+		run("Set Slice...", op);
+		makeOval(resxA[i]-4,resyA[i]-4, 9, 9);
+		if (paint) {
+			makeOval(resxA[i]-1,resyA[i]-1, 3, 3);
+			run("Fill", "slice");
+		} else wait(100);
+	}
+	setForegroundColor(255,255,255);
+}
+
+macro "Plot dynamic Track in a Stack [f1]" {
+	RoiID=getNumber("RoiID?",1);
+	stackID=getImageID();
+	PlotTrackDynamic_stack(RoiID,stackID,0);
+}
+macro "Plot dynamic paint Track in a Stack [f2]" {
+	RoiID=getNumber("RoiID?",1);
+	stackID=getImageID();
+	PlotTrackDynamic_stack(RoiID,stackID,1);
+}
+
+macro "Plot dynamic paint Track in a Stack All" {
+	sRoiID=getNumber("start RoiID?",1);
+	eRoiID=getNumber("start RoiID?",2);
+	stackID=getImageID();
+	for(i=sRoiID;i<eRoiID+1;i++) {
+		PlotTrackDynamic_stack(i,stackID,1);
+	}
+}
+
+
+//******** Substack Montage ************
+function makeSubStackMontage(substackID) {
+	selectImage(substackID);
+	frames=nSlices;
+	cols=10;
+	rows=1+floor(nSlices/cols);
+	op="columns="+cols+" rows="+rows+" scale=3 first=1 last="+frames+" increment=1 border=0 ";
+	run("Make Montage...", op);
+	montID=getImageID();
+	run("Enhance Contrast", "saturated=0.4 ");
+	selectImage(substackID);
+//	run("Close");
+	//return montID;
+}
+
+macro "Make Montage [q]" {
+	subID=getImageID();
+	makeSubStackMontage(subID);
+}
+
+//*********** coordinates exporting **************
+
+
+macro "Save Coordinates as a table" {
+	requires("1.31g");
+	RoiID=getNumber("RoiID?",1);
+	run("Clear Results");
+	startframe=Return_ROI_startf(RoiID);
+	endframe=Return_ROI_endf(RoiID);
+	coordArraysize=endframe-startframe+1;
+	restA=newArray(coordArraysize);
+	resxA=newArray(coordArraysize);
+	resyA=newArray(coordArraysize);
+	restoreCoordArray2D(RoiID,resxA,resyA);	//041203
+	for(i=0;i<coordArraysize;i++){
+		restA[i]=startframe*deltaT+i*deltaT;
+	}
+	run("Clear Results");
+	//SaveResultsCoreV2(RoiID,restA,resxA,resyA);	//041203
+	SaveResultsCore2DV2(RoiID,restA,resxA,resyA); //050523
+	selectWindow("Results");
+	run("Text..."); // File>Save As>Text
+}
+
+macro "Save Coordinates as a table Multi" {
+	requires("1.31g");
+	CellNumber=getNumber("How many cells?",1);
+	expnamestring=getString("Name of Experiment?","experiment");
+	SetpathFunc();
+	for(j=0;j<CellNumber;j++){
+		RoiID=j+1;
+		run("Clear Results");
+		startframe=Return_ROI_startf(RoiID);
+		endframe=Return_ROI_endf(RoiID);
+		coordArraysize=endframe-startframe+1;
+		restA=newArray(coordArraysize);
+		resxA=newArray(coordArraysize);
+		resyA=newArray(coordArraysize);
+		restoreCoordArray2D(RoiID,resxA,resyA);	//041203
+		for(i=0;i<coordArraysize;i++){
+			restA[i]=startframe*deltaT+i*deltaT;
+		}
+		run("Clear Results");
+		SaveResultsCore2DV2(RoiID,restA,resxA,resyA); //041203
+		selectWindow("Results");
+		op="save="+pathname+expnamestring+(j+1)+".txt";
+		run("Text...",op); // File>Save As>Text
+	}
+}
+
+// modified for 2D 041203
+function SaveResultsCore2DV2(RoiID,restA,resxA,resyA) {
+	row = 0;
+	labelt="C"+RoiID+"_T";
+	labelx="C"+RoiID+"_X";
+	labely="C"+RoiID+"_Y";
+	for (row=0; row<resxA.length; row++) {
+		setResult(labelt, row, restA[row]);
+		setResult(labelx, row, resxA[row]);
+		setResult(labely, row, resyA[row]);
+	}
+	updateResults();
+}
+
+
+macro "-" {}
+
+macro "2D Trackcer Single (click and start) [F4]" {
+	run("Clear Results");
+	currentImageID=getImageID();
+	if (!isOpen("Track_ROIinfo.tif")) {
+		Create_ROI_Recording_Frame();
+	}
+	RoiID=getNumber("RoiID?",currentRoiID);
+	selectImage(currentImageID);
+	RoiSetCoordinateRecStartOnly(RoiID);
+	currentRoiID=RoiID;
+
+	kPrintStates2D();
+	Recreate_ROI_core(RoiID);
+	threshold=Return_ROI_threshold(RoiID);
+	startframe=Return_ROI_startf(RoiID);
+	endframe=Return_ROI_endf(RoiID);
+	TrackMain(RoiID,threshold,startframe,endframe);
+	stackID=getImageID();
+	makeAcopyFrame(1);	
+	DrawTrackAll(RoiID,RoiID,stackID);
+
+	currentRoiID=RoiID+1;
+}
+
+
+macro "2D Trackcer Single (Recorded ROI) [l]" {
+	RoiID=getNumber("RoiID?",1);
+	//scanrange=getNumber("Scan Range",10);
+	kPrintStates2D();
+	Recreate_ROI_core(RoiID);
+	threshold=Return_ROI_threshold(RoiID);
+	startframe=Return_ROI_startf(RoiID);
+	endframe=Return_ROI_endf(RoiID);
+	TrackMain(RoiID,threshold,startframe,endframe);
+	stackID=getImageID();
+	makeAcopyFrame(1);	
+	DrawTrackAll(RoiID,RoiID,stackID);
+}
+
+macro "2D Trackcer Multiple (Recorded ROI) [t]" {
+
+	CellNum=getNumber("How Many ROIs?",1);
+	//scanrange=getNumber("Scan Range",10);
+
+
+	kPrintStates2D();
+	for(i=0;i<CellNum;i++) {
+		RoiID=i+1;
+		Recreate_ROI_core(RoiID);
+		ROI_threshold=Return_ROI_threshold(RoiID);
+		startframe=Return_ROI_startf(RoiID);
+		endframe=Return_ROI_endf(RoiID);
+		//TrackMain(RoiID,threshold,startframe,endframe);
+		print("RoiID: "+RoiID);
+		TrackMain(RoiID,globalThreshold,startframe,endframe);	//temp 060208
+	}
+	StartRoiID=1;
+	EndRoiID=CellNum;
+	stackID=getImageID();
+	makeAcopyFrame(1);
+	DrawTrackAll(StartRoiID,EndRoiID,stackID);
+}
+
+//*********************************Main Function for Tracking ****************************
+
+//040426
+// celldetection_mode can be set by different macro.
+// only cross-correlation=1, center-of-mass=2, wand=3, particle analysis=4 
+// by default, 4
+// 2D tracker
+//060326 modify to particle analysis
+
+function TrackMain(RoiID,threshold,startframe,endframe) {
+	Record_parameters(RoiID);
+	RegiROIthresCore(RoiID,threshold);
+	run("Clear Results");
+	run("Set Measurements...", "area mean centroid display redirect=None decimal=1");
+	stackID=getImageID();
+	ww=getWidth();
+	wh=getHeight();
+	getBoundingRect(roix, roiy, roiwidth, roiheight);
+
+	frames=endframe-startframe+1;
+	//frames=nSlices;
+	
+	scanWidth=(scanrange*2)+roiwidth;	
+	scanHeight=(scanrange*2)+roiheight;
+	print("Scan width:"+scanWidth+" Hieght: "+scanHeight);
+
+	//shiftFromScanCornerX=scanWidth/2;
+	//shiftFromScanCornerY=scanHeight/2;
+	//print("Scan Shift X:"+shiftFromScanCornerX+" Y: "+shiftFromScanCornerY);
+
+	countall=0;
+
+	resultX=newArray(frames);		//window coordinate ROI corner
+	resultY=newArray(frames);
+	resultArea=newArray(frames);	
+	resultNextWinX=newArray(frames);
+	resultNextWinY=newArray(frames);	
+	resultZ=newArray(frames);	//dummy
+
+	for (i=0;i<frames;i++) resultZ[i]=1;
+
+	j=0;
+	ParticleGone=-1;
+	dynamic_threshold=threshold;
+	xestimation=0;
+	yestimation=0;
+
+
+	for(frameloop=startframe; frameloop<endframe+1; frameloop++) {
+		//ParticleGone=0;
+		setSlice(frameloop);
+		dynamic_threshold=threshold;
+		if (j!=0) {		
+			roix=resultNextWinX[j-1];//getResult("xWIN",(j));
+			roiy=resultNextWinY[j-1];//getResult("yWIN",(j));
+		} else {
+			makeRectangle(roix, roiy, roiwidth, roiheight);
+			print("Initial center X:"+(roix+roiwidth/2)+" Y: "+(roiy+roiheight/2));
+		}
+
+		//makeOval(roix+roiwidth/2-2, roiy+roiheight/2-2, 4, 4);
+
+		// (xstart,ystart) is the left-top corner of the maximum scan range
+		xstart=ReturnStartPos(roix,scanrange,ww,roiwidth);		//just to avoid going out of frame
+		ystart=ReturnStartPos(roiy,scanrange,wh,roiheight);
+
+		ap_op="size="+particle_min+"-1000 circularity=0.00-1.00 show=Nothing display exclude clear include slice"; //exclude particle touching edge.
+		apth_op="size="+particle_min+"-1000 circularity=0.00-1.00 show=Nothing display clear include slice"; //no exclude
+
+
+		selectImage(stackID);
+		extension_flag=0;
+		for (scanstep=0;scanstep<scanrange;scanstep++) {
+
+			// calculate ROI position and size. 
+
+
+			extractX=(roix-scanstep); // (xCoord-scanrange);
+			extractY=(roiy-scanstep); // (yCoord-scanrange);
+			extractW=(roiwidth+2*scanstep); // roiwidth+2*scanrange;
+			extractH=(roiheight+2*scanstep); //roiheight+2*scanrange;
+			//print("est ROI:"+extractX+","+extractY+","+extractW+","+extractH);
+			if (extractX<0) extractX=0;
+			if (extractY<0) extractY=0;
+			if (extractX>ww-extractW-1) extractX=ww-extractW-1;
+			if (extractY>wh-extractH-1) extractY=wh-extractH-1;
+
+			//print("corrected ROI:"+extractX+","+extractY+","+extractW+","+extractH);
+			//print("scan: frame"+frameloop+"scanstep"+scanstep);
+
+			
+			makeRectangle(extractX,extractY,extractW,extractH);
+			resetThreshold();
+			setThreshold(dynamic_threshold, 255);		
+			run("Analyze Particles...", ap_op);
+				//print("frame"+frameloop+" step"+scanstep+" particles:"+nResults);
+			if (nResults==1) {
+				currentN=nResults;	
+				resultX[j]=getResult("X", currentN-1);
+				resultY[j]=getResult("Y", currentN-1);
+				resultArea[j]=getResult("Area", currentN-1);
+				//print("frame"+frameloop+"area :: "+resultArea[j]+" scanstep:"+scanstep+" Th:"+dynamic_threshold);
+				scanstep=scanrange;
+				ParticleGone=0;
+			} else {
+				particleAveArea=calc_averagePrevArea(j,resultArea);
+				if (nResults==0) {
+						//print("no particles:"+scanstep);
+					setThreshold(dynamic_threshold, 255);
+					makeRectangle(extractX,extractY,extractW,extractH);		
+					run("Analyze Particles...", apth_op);
+					if (nResults==0) {
+						optimizedthres=tuneThresholdZeroParticle(extractX,extractY,extractW,extractH,threshold,particleAveArea);
+						if (optimizedthres!=threshold) {
+							dynamic_threshold=optimizedthres;
+							print(optimizedthres);
+							scanstep=0; //could be problem
+						}  else {		//threshold adjustment does not work
+							if (scanstep==scanrange-1) { 
+								print("terminate: too fast or went out of the frame");
+								ParticleGone=1;
+							} else {
+								//print("frame"+frameloop+"scanstep"+scanstep+" tuning did not work. increase ROI size");
+								//print(extractX+","+extractY+","+extractW+","+extractH);
+							}
+						}
+					
+					} //else print("frame"+frameloop+"scanstep"+scanstep+" increase ROI size");	
+				} else {	//(nResults>1)
+					print("frame"+frameloop+" multi particles:"+nResults+" scanstep"+scanstep);
+					optimizedthres=tuneThresholdMultiParticle(extractX,extractY,extractW,extractH,threshold,particleAveArea);
+					if (optimizedthres!=threshold) {
+						dynamic_threshold=optimizedthres;
+						scanstep=0; //could be problem
+					} else {
+						if ((extension_flag==0) && (xestimation!=0) && (yestimation!=0)) {
+							resultNextWinX[j]+=xestimation;
+							resultNextWinY[j]+=yestimation;
+							if (resultNextWinX[j]<0) resultNextWinX[j]=0;
+							if (resultNextWinY[j]<0) resultNextWinY[j]=0;
+							if (resultNextWinX[j]>ww-extractW-1) resultNextWinX[j]=ww-extractW-1;
+							if (resultNextWinY[j]>wh-extractH-1) resultNextWinY[j]=wh-extractH-1;
+							print("extend estimated position by 2");
+							extension_flag=1;
+							scanstep=0; //could be problem
+						} else {
+							print("terminate: probably crossing");
+							ParticleGone=1;
+						}
+					}
+				}
+			}		// end of nResults!=1 treatments
+
+			if ((nResults!=0) && (scanstep==scanrange-1)) ParticleGone=1;
+
+
+		}
+		if (ParticleGone==0) {
+			resultNextWinX[j]=resultX[j]-(roiwidth/2);
+			resultNextWinY[j]=resultY[j]-(roiheight/2);
+		
+			if ((j>(persistence-1)) && (persistence>1)) {
+				xestimation=EstPersistence(resultX,j);
+				yestimation=EstPersistence(resultY,j);
+				//print(xestimation+","+yestimation);
+				resultNextWinX[j]+=xestimation;
+				resultNextWinY[j]+=yestimation;
+			}	
+		
+
+			selectImage(stackID);
+			if (substack_switch==1) {
+				subroiwidth=roiwidth+2*space4substack;
+				subroiheight=roiheight+2*space4substack;
+				makeRectangle(xCoord-space4substack, yCoord-space4substack, subroiwidth, subroiheight);
+				run("Copy");
+				if (j==0) {
+					op="name=subSTK_cell"+RoiID+" type=8-bit fill=White width=" + subroiwidth + " height=" + subroiheight + " slices=1";
+					run("New...", op);
+					subID=getImageID();
+					run("Paste");
+				} else {
+					//selectWindow("subSTK");
+					selectImage(subID);
+					run("Add Slice");
+					run("Paste");	
+				}
+				selectImage(stackID);		
+			}
+
+			makeOval(round(resultX[j]), round(resultY[j]), 1, 1);
+			//wait(50);
+			trackedtimepoints=j+1;
+		
+		} else {
+			RegiROIendCore(RoiID,frameloop-1);
+			frameloop=endframe;
+			trackedtimepoints=j;
+			print("particle gone or multiple particle");
+
+		}
+		j++;
+	}
+	ResCentroidXA=newArray(trackedtimepoints);	
+	ResCentroidYA=newArray(trackedtimepoints);
+	for (j=0;j<trackedtimepoints;j++){
+		ResCentroidXA[j]=resultX[j];
+		ResCentroidYA[j]=resultY[j];
+
+	}
+	
+	run("Clear Results");
+	arrayTOresults(ResCentroidXA,ResCentroidYA);
+	recordCoordArray(RoiID,resultX,resultY);	
+	//recordCoordArrayZ(RoiID,resultZ);		// this will set al z to 1.
+	//if (substack_switch==1) {
+	//	PlotDotatCell(subID,resultROIX,resultROIY,0,frames);
+	//}
+	average_v=returnAverageSpeed2D(ResCentroidXA,ResCentroidYA);
+	op="Cell"+RoiID+" Average Velocity("+speedunit+") "+average_v;
+	print(op);
+	selectImage(stackID);
+}
+
+//***************************
+
+macro "test threshold optimize" {
+	getBoundingRect(roix, roiy, roiwidth, roiheight);
+	opt_th=DetThresForSingleSpot8bit(roix, roiy, roiwidth, roiheight,40,40);
+	print("optimized threshold:"+opt_th); 
+}
+
+function tuneThresholdZeroParticle(thX,thY,thW,thH,baseth,areaMax) {
+
+	apth_op="size="+particle_min+"-1000 circularity=0.00-1.00 show=Nothing display clear include slice"; //no exclude
+	optimized_th=baseth;
+	optimizesuccess=0;
+	currentparticles=0;
+	currentarea=0;
+	while (currentparticles==0) {	
+		optimized_th--;
+		makeRectangle(thX,thY,thW,thH);
+		setThreshold(optimized_th, 255);		
+		run("Analyze Particles...", apth_op);
+		currentparticles=nResults;
+		if (nResults>0) {
+			currentarea=getResult("Area", nResults-1);
+			optimizesuccess=1;
+		}
+		//print("th:"+optimized_th+" particles"+currentparticles);
+		if ((optimized_th<2) || (currentarea>areaMax*2)) {
+			optimized_th=baseth;
+			currentparticles=-1; //exit loop
+			//print(currentparticles);
+		} 
+	}
+	if (optimizesuccess==0) optimized_th=baseth;
+	return optimized_th;
+}
+
+function tuneThresholdMultiParticle(thX,thY,thW,thH,baseth,areaMax) {
+	apth_op="size="+particle_min+"-1000 circularity=0.00-1.00 show=Nothing display clear include slice"; //no exclude
+	optimized_th=baseth;
+	optimizesuccess=0;
+	currentparticles=2;
+	currentarea=0;
+	print("more than 1 particle: "+nResults);
+	while (currentparticles>1) {	
+		optimized_th--;
+		makeRectangle(thX,thY,thW,thH);
+		setThreshold(optimized_th, 255);		
+		run("Analyze Particles...", apth_op);
+		currentparticles=nResults;
+		if (nResults==1) {
+			currentarea=getResult("Area", nResults-1);
+			optimizesuccess=1;
+		}
+		if ((optimized_th<2) || (currentarea>areaMax*2)) {
+			optimized_th=baseth;
+			currentparticles=-1; //exit loop
+		} 
+	}
+	if (optimizesuccess==0) optimized_th=baseth;
+	return optimized_th;
+}
+
+//060321
+//find a threshold value that segments only one spot in the ROI
+// for low back with high signal 
+function DetThresForSingleSpot8bit(thX,thY,thW,thH,baseth,areaMax) {
+	apth_op="size="+particle_min+"-1000 circularity=0.00-1.00 show=Nothing display clear include slice";
+	setThreshold(baseth, 255);
+	makeRectangle(thX,thY,thW,thH);		
+	run("Analyze Particles...", apth_op);
+	optimized_th=baseth;
+	optimizesuccess=1;
+	if (nResults>1) {
+		print("more than 1 particle: "+nResults);
+		currentparticles=2;
+		while (currentparticles>1) {	
+			optimized_th--;
+			makeRectangle(thX,thY,thW,thH);
+			setThreshold(optimized_th, 255);		
+			run("Analyze Particles...", apth_op);
+			currentparticles=nResults;
+			if (nResults>0) currentarea=getResult("Area", nResults-1);
+			//print("th:"+optimized_th+" particles"+currentparticles);
+
+			if ((optimized_th<2) || (currentarea>areaMax*2)) {
+				optimized_th=baseth;
+				currentparticles=-1; //exit loop
+			} 
+		}
+
+	} else {
+		if (nResults==0) {
+			//print("no particles");
+			currentparticles=0;
+			currentarea=0;
+			while (currentparticles==0) {	
+				optimized_th--;
+				makeRectangle(thX,thY,thW,thH);
+				setThreshold(optimized_th, 255);		
+				run("Analyze Particles...", apth_op);
+				currentparticles=nResults;
+				if (nResults>0) currentarea=getResult("Area", nResults-1);
+				//print("th:"+optimized_th+" particles"+currentparticles);
+
+				if ((optimized_th<2) || (currentarea>areaMax*2)) {
+					optimized_th=baseth;
+					currentparticles=-1; //exit loop
+					//print(currentparticles);
+				} 
+			}
+		}
+	}
+	makeRectangle(thX,thY,thW,thH);
+	setThreshold(optimized_th, 255);		
+	run("Analyze Particles...", apth_op);
+	//print("detectd particles:"+nResults+" optimized threshold: "+optimized_th);
+	makeRectangle(thX,thY,thW,thH);
+	return optimized_th;
+}
+
+//060322
+function calc_averagePrevArea(j,resultArea) {
+	if (j>1) {
+		tempAreaA=newArray(j-1);
+		for(temploop=0;temploop<tempAreaA.length;temploop++) {
+		tempAreaA[temploop]=resultArea[temploop];
+		}
+		particleAveArea=findAVEofArray(tempAreaA);
+	} else {
+		particleAveArea=particle_min*1.8; //particle_min is a global var
+	}
+	return particleAveArea;
+}
+
+
+//060321
+function EstPersistence(coordA,framecount){
+	displacements=0;
+	for (perloop=framecount-persistence+1;perloop<framecount;perloop++) {
+		displacements+=(coordA[perloop+1]-coordA[perloop]);
+	}
+	displacements/=(persistence-1);
+	return displacements;
+}
+
+//************************** Array to Results WIndow *****************************
+//040425
+// output array into "Results" Window
+
+//2D version
+function arrayTOresults(xposarray,yposarray) {
+	sizex=xposarray.length;
+	for (i=0; i<sizex; i++) {
+		setResult("xPOS",i,xposarray[i]);
+		setResult("yPOS",i,yposarray[i]);
+		//print(tempx);
+	}
+	updateResults();
+}
+
+
+//040426
+//++ output coordinates within the ROI array ++
+//2D version
+function arrayTOresultsROI(xposarray,yposarray) {
+	sizex=xposarray.length;
+	for (i=0; i<sizex; i++) {
+		setResult("RPOSx",i,xposarray[i]);
+		setResult("RPOSy",i,yposarray[i]);
+		//print(tempx);
+	}
+	updateResults();
+}
+
+//************************* Arrays to ROI, ROI to arrays, ross-Correlation******************************
+function convertROItoAR(conv_roix,conv_roiy,conv_roiwidth,conv_roiheight,ar) {
+	k=0;
+	for(i=conv_roiy;i<conv_roiy+conv_roiheight;i++) {
+		for(j=conv_roix;j<conv_roix+conv_roiwidth;j++) {
+			ar[k]=getPixel(j,i);
+			k+=1;
+		}	 
+	}
+	//print("done...");
+}
+
+// returns the point number where the highest value within the array.
+function findMAXinArray(a) {
+	size=a.length;
+	highcor=0;
+	highnum=0;
+	for(i=0;i<size;i++) {
+		if (a[i]>highcor) {
+			highcor=a[i];
+			highnum=i;
+		}
+	}
+	return highnum;
+}
+
+function findMINinArray(a) {
+	size=a.length;
+	//maxvalue=findMAXinArray(a);
+	lowest=100000000;
+	lowestnum=0;
+	for(i=0;i<size;i++) {
+		if (a[i]<lowest) {
+			lowest=a[i];
+			lowestnum=i;
+		}
+	}
+	return lowestnum;
+}
+
+// finds the average of an array. 
+function findAVEofArray(a) {
+	size=a.length;
+	intsigma=0;
+	for(i=0;i<size;i++) {
+		intsigma+=a[i];
+	}
+	intsigma/=size;
+	return intsigma;
+}
+
+// root-mean-squared of an array
+function returnMvalue(a){
+	size=a.length;
+	Isigma=0;
+	rmsInt=0;
+	for(i=0;i<size;i++) {
+		Isigma+=pow(a[i],2);
+	}
+	rmsInt=pow(Isigma,0.5);
+	return rmsInt;
+}
+
+function returnMvalueNorm(a){
+	size=a.length;
+	abar=findAVEofArray(a); 	//average of the array A
+	Isigma=0;
+	rmsInt=0;
+	for(i=0;i<size;i++) {
+		tempa=a[i]-abar;
+		Isigma+=pow(tempa,2);
+	}
+	rmsInt=pow(Isigma,0.5);
+	return rmsInt;
+}
+
+//returns the cross correlation value (not-normalized)
+//array a and b must have a same size.
+//050502 kbar introduced
+function returnsCrossCorrelation(a,b) {	
+	arraysize=a.length;
+	kbar=findAVEofArray(a); 	//average of the array A
+	ibar=findAVEofArray(b); 	//average of the array B
+	ccval=0;
+	for (j=0;j<arraysize;j++) {
+		//ccval+=(a[j]-kbar)*b[j];
+		ccval+=a[j]*b[j]; //back to the original 060206
+	}
+	return ccval;
+}
+
+//050502 normalization
+//060207 fixed
+function returnsCrossCorMvalue(a,b) {	
+	arraysize=a.length;
+	kbar=findAVEofArray(a); 	//average of the array a
+	ibar=findAVEofArray(b); 	//average of the array b
+	Mvalue=returnMvalue(a)*returnMvalue(b);
+//	Mvalue=returnMvalueNorm(a)*returnMvalueNorm(b);
+	ccval=0;
+	for (j=0;j<arraysize;j++) {
+		ccval+=(a[j]-kbar)*(b[j]-ibar);
+	}
+	ccval/=Mvalue;
+	return ccval;
+}
+
+function returnsCrossCorrelationOld(a,b) {	//bcame Old on 050502
+	arraysize=a.length;
+	ccval=0;
+	for (j=0;j<arraysize;j++) {
+		ccval+=a[j]*b[j];
+	}
+	return ccval;
+}
+
+function returnsSAD(a,b) {	//060207
+	arraysize=a.length;
+	ccval=0;
+	for (j=0;j<arraysize;j++) {
+		ccval+=abs(a[j]-b[j]);
+	}
+	return ccval;
+}
+
+
+
+
+//***** new functions (040510) ********
+
+function ReturnYfromPos(pos,xloop) {
+	yposdec=pos/xloop;
+	ypos=floor(yposdec);
+	return ypos;
+}
+
+function ReturnXfromPos(pos,ypos,xloop) {
+	xpos=pos-(ypos*xloop);
+	return xpos;
+}
+
+function ReturnStartPos(roipos,scanrange,winsize,roisize) {
+	startpos=roipos-scanrange;
+	if (startpos<0) {
+		startpos=0;
+	}
+	a=winsize-roisize;
+	if (startpos>a) {
+		startpos=a;
+	}
+	return startpos;
+}
+
+
+//***** stats *******************
+
+function returnAverageSpeed2D(xA,yA) {
+	size=xA.length;
+	sigvel=0;
+	for(i=0;i<size-1;i++) {
+		sqv=pow(xA[i+1]-xA[i],2)+pow(yA[i+1]-yA[i],2);
+		vel=sqrt(sqv);
+		vel*=speedfactor;
+		sigvel+=vel;
+	}
+	avevel=sigvel/(size-1);
+	return avevel;
+}
+
+//***** Misc Utilities **********
+
+//++++++ make a new window with a copy of image from specified frame of a stack
+function makeAcopyFrame(FrameNum) {
+	op="slice="+FrameNum;
+	run("Set Slice...", op);
+	ww=getWidth();
+	wh=getHeight();
+
+	// Prepare the track plotting 
+	run("Select All");
+	run("Copy");
+	op="name=FirstImg type=8-bit fill=White width="+ww+" height="+wh+" slices=1";
+	run("New...", op);
+	run("Paste");
+}
+
+function kPrintStates2D() {
+	print(" ");
+	print("Cell Detection Mode:"+celldetection_mode);
+	print("dt (sec):"+deltaT+"     Scale XY(um/pixel):"+micromPpix+"     Scan Range (pixels):"+scanrange);
+	//print("Z thickness:"+zframethickness+"     Z frames:"+zframes+"    Z Scan Range:"+zscanrange);
+}
+
+//050502 copied
+function SetpathFunc() {
+	requires("1.32f");
+	pathname=getDirectory("select a folder");
+	op="saving Path set to "+pathname;	
+	print(op);
+}
+
+//******************** click and record ROI ID ************************
+// developed for Gaspar, ROI size is fixed for the embryo
+
+function RoiSetCoordinateRec(RoiID){
+	SetRoiWidth=13;
+	SetRoiHeight=13;
+	SetRoihalfX=7;
+	SetRoihalfY=7;
+	SetRoiThres=globalThreshold;
+	 px=newArray(2); py=newArray(2);pz=newArray(2);
+	RoiSet_ClickListener(px,py,pz);
+
+	currentImageID=getImageID();
+
+	selectWindow("Track_ROIinfo.tif");
+	currentInfoCol=(RoiID-1)*5;
+
+	setpixel(0,currentInfoCol,(px[0]-SetRoihalfX));
+	setpixel(1,currentInfoCol,(py[0]-SetRoihalfY));
+	setpixel(2,currentInfoCol,SetRoiWidth);
+	setpixel(3,currentInfoCol,SetRoiHeight);
+	setpixel(4,currentInfoCol,SetRoiThres);		 
+	setpixel(5,currentInfoCol,pz[0]);
+	setpixel(6,currentInfoCol,pz[1]);
+	for(i=0;i<pz[1]-pz[0]+1;i++) {		// for z-aray, put 1.
+		setpixel(6,currentInfoCol+3,1);
+	}
+	selectImage(currentImageID);
+
+	print("RoiID"+RoiID+" finished");
+}
+
+function RoiSet_ClickListener(px,py,pz) {
+	requires("1.30e");
+	leftButton=16;
+	rightButton=4;
+	shift=1;
+	ctrl=2; 
+	alt=8;
+
+  	setTool(7);
+	 x2=-1; y2=-1; z2=-1;
+	getCursorLoc(x, y, z, flags);
+	count=0;
+	startfinish=0;
+	endfinish=0;
+	while ((flags&shift!=1) && (endfinish==0)) {
+		getCursorLoc(x, y, z, flags);
+		if (flags&leftButton!=0) {
+			getBoundingRect(locx, locy, width, height);
+			makeRectangle(locx, locy, 1, 1);	//otherwise, "measure" below will paint a point.
+			if ((locx!=0) && (locy!=0)) {
+				rz=z;  //getResult("Z",nResults-1);
+				run("Select None");
+				if (startfinish==0) {
+					px[0]=locx;
+					py[0]=locy;
+					pz[0]=rz+1;
+					startfinish=1;
+					print("Start point X: "+px[0]+", Y: "+py[0]+", frame: "+pz[0]);
+					showMessage("start point defined.");
+				} else  {
+					px[1]=locx;
+					py[1]=locy;
+					pz[1]=rz+1;
+					showMessage("end point defined.");
+					print("End point X: "+px[1]+", Y: "+py[1]+", frame: "+pz[1]);
+					endfinish=1;
+				}
+
+				wait(100);
+			}
+		}
+		
+		wait(10);
+	}
+	//print("Exiting after "+nResults+" points");
+	//run("Clear Results");
+	//SaveResultsCore2DV2(1,pz,px,py);
+	//setTool(0);
+	//resultsTOarray(aX,aY,aZ);
+	//return count;
+}
+
+
+
+function RoiSetCoordinateRecStartOnly(RoiID){
+	SetRoiWidth=13;
+	SetRoiHeight=13;
+	SetRoihalfX=7;
+	SetRoihalfY=7;
+	SetRoiThres=globalThreshold;
+	 px=newArray(2); py=newArray(2);pz=newArray(2);
+	RoiSet_ClickListenerSonly(px,py,pz);
+
+	currentImageID=getImageID();
+
+	selectWindow("Track_ROIinfo.tif");
+	currentInfoCol=(RoiID-1)*5;
+
+	setpixel(0,currentInfoCol,(px[0]-SetRoihalfX));
+	setpixel(1,currentInfoCol,(py[0]-SetRoihalfY));
+	setpixel(2,currentInfoCol,SetRoiWidth);
+	setpixel(3,currentInfoCol,SetRoiHeight);
+	setpixel(4,currentInfoCol,SetRoiThres);		 
+	setpixel(5,currentInfoCol,pz[0]);
+	setpixel(6,currentInfoCol,pz[1]);
+	//for(i=0;i<pz[1]-pz[0]+1;i++) {		// for z-aray, put 1.
+	//	setpixel(6,currentInfoCol+3,1);
+	//}
+	print("RoiID"+RoiID+" finished");
+	selectImage(currentImageID);
+}
+
+function RoiSet_ClickListenerSonly(px,py,pz) {
+	requires("1.30e");
+	leftButton=16;
+	rightButton=4;
+	shift=1;
+	ctrl=2; 
+	alt=8;
+
+	px[1]=0;
+	py[1]=0;
+	pz[1]=nSlices;
+	
+  	setTool(7);
+	 x2=-1; y2=-1; z2=-1;
+	getCursorLoc(x, y, z, flags);
+	count=0;
+	startfinish=0;
+	endfinish=0;
+	while ((flags&shift!=1) && (endfinish==0)) {
+		getCursorLoc(x, y, z, flags);
+		if (flags&leftButton!=0) {
+			getBoundingRect(locx, locy, width, height);
+			makeRectangle(locx, locy, 1, 1);	//otherwise, "measure" below will paint a point.
+			if ((locx!=0) && (locy!=0)) {
+				rz=z;  //getResult("Z",nResults-1);
+				run("Select None");
+				if (startfinish==0) {
+					px[0]=locx;
+					py[0]=locy;
+					pz[0]=rz+1;
+					startfinish=1;
+					print("Start point X: "+px[0]+", Y: "+py[0]+", frame: "+pz[0]);
+					//showMessage("start point defined.");
+					endfinish=1;
+				} 
+				wait(100);
+			}
+		}
+		wait(10);
+	}
+
+}
+

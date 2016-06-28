@@ -1,0 +1,94 @@
+//040512 Kota Miura
+
+//040513 added threshold option
+// cell outside must be cleared to 0 before measurement in this case.
+//060503 replaced the function "specify ROI' to "makeOval"
+
+var initialw=15;
+var iter=25;
+var radius_spacingMethod=2;		//1 is constant area change, 2 is constant radius increase
+var th_min=12;
+var centerx=400;
+var centery=400;
+
+//
+macro "Set Initial Diameter" {
+	initialw=getNumber("Diameter?",initialw);
+}
+
+// this does not have any meaning 060503
+macro "Set Iterations" {
+	iter=getNumber("Iterations?",iter);
+}
+
+//1 is constant area change, 2 is constant radius increase
+macro "Set SpacingMethod" {
+	radius_spacingMethod=getNumber("Radius Spacing Method (1 or 2 )?",radius_spacingMethod);
+}
+
+macro "Set Threshold Minimum" {
+	th_min=getNumber("Threshold Minimum?",th_min);
+}
+
+
+macro "-" {}
+
+macro "Radial Intensity Distribution [F1]" {
+	wh=getWidth();
+	ww=getHeight();
+	//slices=nSlices();
+	//centerx=ww/2;
+	//centery=ww/2;	
+	centerx=getNumber("Center X?",centerx);
+	centery=getNumber("Center Y?",centery);
+	MaxDis=getNumber("Max Distance to edge?",300);
+	th_min=getNumber("Threshold Minimum?",th_min);
+
+	iter=1+floor(MaxDis/initialw*2);
+
+	//initialw=getNumber("Diameter?",30);
+	//initialh=getNumber("Circle Hright?",30);
+	//iter=getNumber("Iterations?",10);
+	run("Clear Results");
+	run("Select All");
+	run("Set Measurements...", "     min           redirect=None decimal=1");
+	run("Measure");
+	resultMaxInt=getResult("Max", nResults-1);
+	run("Clear Results");
+	run("Set Measurements...", "area mean           limit   redirect=None decimal=1");
+	setThreshold(th_min,resultMaxInt);
+	for(i=0;i<iter;i++) {
+		if (i==0) {
+			radius=initialw/2;
+		} else {
+			if (radius_spacingMethod==1) {
+				radius=sqrt((2*i+1)*pow(initialw/2,2));
+			} else {
+				radius=(i+1)*(initialw/2);
+			}
+		}
+		//op= "width="+(radius*2)+" height="+(radius*2)+" x="+centerx+" y="+centery+" slice="+"1"+" oval centered";
+		//run("Specify ROI",op);
+		makeOval(centerx-radius, centery-radius, (radius*2), (radius*2));
+		run("Measure");
+		//run("Draw");
+		currentN=nResults;
+		resultMeanInt=getResult("Mean", i);
+		resultArea=getResult("Area", i);
+		IntegratedInt=resultMeanInt*resultArea;
+		areaD=resultArea;
+		MeanD=resultMeanInt;
+		if (i!=0) {
+			previousArea=getResult("Area", i-1);
+			previousMean=getResult("Mean", i-1);
+			IntegratedInt-=previousArea*previousMean;
+			areaD=getResult("Area", i)-previousArea;
+			MeanD=IntegratedInt/areaD;
+		}
+		setResult("SigInt",i,IntegratedInt);
+		setResult("Darea",i,areaD);
+		setResult("Dmean",i,MeanD);
+		setResult("Radius",i,radius);
+		updateResults();	
+	}
+  }

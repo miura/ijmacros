@@ -1,0 +1,1148 @@
+//
+// *************  Multi-Cell Tracker 3D*******************************************
+//-  Author: Kota Miura (miura@embl.de) 
+// Deviated from "Multi-Cell Tracker 2D" started 3D 040503
+
+// 040203 
+// getting the coross correlation // only for 8 bit stack
+
+//040425
+//more updates, with multiple ROI managements. //renamed file to Tracking2.txt //introduce Array to record determined positions.
+
+//040426
+// saved as tracking3.txt based on tracking2.txt// removed most of the test Macros// plot "dot" in the cell-stack to show the position detected.
+// "track single" depends on the ROI information window. // track coordinates are now stored in the ROI information window.
+
+//040427
+//	Multiple cells (using the Image-Info, read-out info, apply it for different cells.) // saved as tracking4.txt 
+
+//040428
+//	Track Plotting for the whole stack. //Print RoiID in the image at its position.
+
+//040429
+//	speed factor added (to show the results in micrometer per sec) // show velocity graph funciton;output text data
+//040510 (ver. 2b)
+//	sorting of functions (faster). cell position determination error revised.
+//040608
+//	fixed bugs on the boundary problem in Z axis. renamed to "tracking3D3"
+//040826
+//	dynamic plotting of ovals to check tracks
+//041203 seperated 2D tracker, copied required functions. 
+
+//PLAN
+// Automatic Threshold adjustment (according to the average intensity) //Z-axis measurement.
+
+//This macro works only with stacks. Cells must be in white with black background.
+// select the position of the cell by rectangular selection tool. Then start the macro.
+// Pop-up dialog asks you to input
+//	1. Frames. how many framse you want to track.
+//	2. Threshold. Threshold llevel for segmenting the cell.
+// currently, (040205) "Track by Wand Stack"  has the best performance for fl. labeled cells.
+
+var RoiCount;
+var celldetection_mode=4;	// only cross-correlation=1, center-of-mass=2, wand=3 particle track=4
+var scanrange=15;
+var zscanrange=1;
+var speedfactor=1;	//speed factor = delta-t*micrometer/pixel
+var deltaT=30;
+var micromPpix=1.3;
+var speedunit="pixels/frame";
+var zframes=21;
+var zframethickness=2.5;
+var zfactor=1;
+var space4substack=4;
+var particle_min=3;
+
+//------------ FUNCTIONS ------------------------------
+
+//040204
+// returns then-position of the highest value of the mean from the multiple results in the result table. 
+function getHighMeanN(count) {
+	iteration=count+1;
+	HighestN=0;
+	HighestCor=0;
+	for(i=1;i<iteration;i+=1) {
+		currentMean=getResult("Mean",i);
+		if (currentMean>HighestCor) {
+			HighestN=i;
+			HighestCor=currentMean;
+		}
+	}
+	//print ("Highest Point:"+ HighestN);
+	return HighestN;
+}
+
+// this function clears edge of the image frame by 1 pixel width black color
+//040204
+function ClearEdge() {
+	wh=getWidth();
+	ww=getHeight();
+	setForegroundColor(0, 0, 0);
+	drawLine(0, 0, (ww-1), 0);
+	drawLine((ww-1), 0, (ww-1), (wh-1));
+	drawLine((ww-1), (wh-1), 0, (wh-1));
+	drawLine(0, (wh-1), 0, 0);
+	setForegroundColor(255, 255, 255);
+}
+
+//********* global variable controller**********
+
+// only cross-correlation=1, center-of-mass=2, wand=3, particle analysis=4
+// particle analysis is recommended for good contrast target object.
+macro "Set Cell Detection Mode" {
+	celldetection_mode=getNumber("Cell Detection Mode?",celldetection_mode);
+}
+
+macro "Set Scan Range" {
+	scanrange=getNumber("Scan Range?",scanrange);
+}
+
+macro "Set time interval and scale" {
+	deltaT=getNumber("Time Interval (sec)?",deltaT);
+	micromPpix=getNumber("Scale (micrometer per pixel)?",micromPpix);
+	speedfactor=micromPpix/deltaT*60;
+	speedunit="micormeter/min";
+}
+
+macro "Set Z frames" {
+	zframes=getNumber("Number of Frames in Z?",zframes);
+	zframethickness=getNumber("Z  thickness (in micrometer)?",zframethickness);
+	zfactor=zframethickness/micromPpix;
+}
+
+macro "Set Z scanrange" {
+	zscanrange=getNumber("Scan Range in Z?",zscanrange);
+}
+
+macro "Print Status in Log Window" {
+	kPrintStates();
+}
+macro '-' {} 
+
+//040425********************  ROI Modules***************************************************************
+// Records the ROI dimensions in a image file
+// maximum number of cell is 33, maximum coordinates are 200
+
+function Create_ROI_Recording_Frame() {
+	run("New...", "name=Track_ROIinfo.tif type=16-bit fill=White width=200 height=150 slices=1");
+}
+
+function setpixel(InfXpos,InfYpos,pixvalue) {
+	selectWindow("Track_ROIinfo.tif");
+	setPixel(InfXpos,InfYpos,pixvalue);
+}
+
+//first row: information on conditions //2nd row: x coordinates (results);
+//3rd row: y coordinates (results); //4th row: z coordinates (results);
+// for 3D //5th row: vacant
+
+function RegiROICore() {
+	getBoundingRect(roix, roiy, roiwidth, roiheight);
+	RoiID=getNumber("RoiID?",1);	
+	RoiThres=getNumber("Threshold?",50);
+	RoiStartFrame=getNumber("Start Frame?",1);
+	RoiEndFrame=getNumber("End Frame?",10);
+
+	currentImageID=getImageID();
+	//CheckRoiInfoWin=isOpen("Track_ROIinfo.tif");
+	if (!isOpen("Track_ROIinfo.tif")) {
+		Create_ROI_Recording_Frame();
+	}
+	selectWindow("Track_ROIinfo.tif");
+	currentInfoCol=(RoiID-1)*5;
+
+	setpixel(0,currentInfoCol,roix);
+	setpixel(1,currentInfoCol,roiy);
+	setpixel(2,currentInfoCol,roiwidth);
+	setpixel(3,currentInfoCol,roiheight);
+	setpixel(4,currentInfoCol,RoiThres);
+	setpixel(5,currentInfoCol,RoiStartFrame);
+	setpixel(6,currentInfoCol,RoiEndFrame);
+	for(i=0;i<RoiEndFrame-RoiStartFrame+1;i++) {		// for z-aray, put 1.
+		setpixel(6,currentInfoCol+3,1);
+	}
+	op="RoiID"+RoiID+" registered.";
+	print(op);
+	selectImage(currentImageID);
+}
+
+macro "Register ROI [f5]" {
+	RegiROICore();
+}
+
+
+//040425
+// re-set the ROI according to the info file created by the registration.
+
+
+function Return_ROI_threshold(RoiID) {
+	currentImageID=getImageID();
+	selectWindow("Track_ROIinfo.tif");
+	currentInfoCol=(RoiID-1)*5;
+	thres=getPixel(4,currentInfoCol);
+	selectImage(currentImageID);
+	return thres;
+}
+
+function Return_ROI_startf(RoiID) {
+	currentImageID=getImageID();
+	selectWindow("Track_ROIinfo.tif");
+	currentInfoCol=(RoiID-1)*5;
+	sf=getPixel(5,currentInfoCol);
+	selectImage(currentImageID);
+	return sf;
+}
+
+function Return_ROI_endf(RoiID) {
+	currentImageID=getImageID();
+	selectWindow("Track_ROIinfo.tif");
+	currentInfoCol=(RoiID-1)*5;
+	ef=getPixel(6,currentInfoCol);
+	selectImage(currentImageID);
+	return ef;
+}
+
+function Return_ROI_width(RoiID) {
+	currentImageID=getImageID();
+	selectWindow("Track_ROIinfo.tif");
+	currentInfoCol=(RoiID-1)*5;
+	width=getPixel(2,currentInfoCol);
+	selectImage(currentImageID);
+	return width;
+}
+
+function Return_ROI_height(RoiID) {
+	currentImageID=getImageID();
+	selectWindow("Track_ROIinfo.tif");
+	currentInfoCol=(RoiID-1)*5;
+	height=getPixel(3,currentInfoCol);
+	selectImage(currentImageID);
+	return height;
+}
+
+function Recreate_ROI_core(RoiID) {
+	currentImageID=getImageID();
+	selectWindow("Track_ROIinfo.tif");
+	currentInfoCol=(RoiID-1)*5;
+
+	roix=getPixel(0,currentInfoCol);
+	roiy=getPixel(1,currentInfoCol);
+	roiwidth=getPixel(2,currentInfoCol);
+	roiheight=getPixel(3,currentInfoCol);
+	selectImage(currentImageID);
+	makeRectangle(roix, roiy, roiwidth, roiheight);
+}
+
+function Recreate_ROI() {
+	if (!isOpen("Track_ROIinfo.tif")) {
+		showMessage("error","You Need a ROI info window!");
+	}
+	else {
+		RoiID=getNumber("RoiID?",1);
+		Recreate_ROI_core(RoiID);
+	}
+}
+
+macro "Recreate ROI [f6]" {
+	Recreate_ROI();
+}
+
+//****** For Recording Coordinates in the TrackROI_info window ***********
+
+function recordACoord(RoiID,xpos,ypos,i) {
+	xCol=(RoiID-1)*5+1;
+	yCol=(RoiID-1)*5+2;
+	setPixel(i,xCol,xpos);
+	setPixel(i,yCol,ypos);
+}
+
+function recordACoordZ(RoiID,zpos,i) {
+	zCol=(RoiID-1)*5+3;
+	setPixel(i,zCol,zpos);
+}
+
+function recordCoordArray(RoiID,xA,yA) {
+	currentImageID=getImageID();
+	if (!isOpen("Track_ROIinfo.tif")) {
+		Create_ROI_Recording_Frame();
+	}
+	selectWindow("Track_ROIinfo.tif");
+	size=xA.length;
+	for(i=0;i<size;i++) {
+		recordACoord(RoiID,xA[i],yA[i],i);
+	}	
+	selectImage(currentImageID);
+} 
+
+function recordCoordArrayZ(RoiID,zA) {
+	currentImageID=getImageID();
+	if (!isOpen("Track_ROIinfo.tif")) {
+		Create_ROI_Recording_Frame();
+	}
+	selectWindow("Track_ROIinfo.tif");
+	size=zA.length;
+	for(i=0;i<size;i++) {
+		recordACoordZ(RoiID,zA[i],i);
+	}	
+	selectImage(currentImageID);
+} 
+
+function restoreCoordArray(RoiID,xA,yA,zA) {
+	currentImageID=getImageID();
+	if (!isOpen("Track_ROIinfo.tif")) {
+		showMessageWithCancel("Abort","Track_ROIinfo.tif must be opend!");
+	}
+	selectWindow("Track_ROIinfo.tif");
+
+	currentInfoColx=(RoiID-1)*5+1;
+	currentInfoColy=(RoiID-1)*5+2;
+	currentInfoColz=(RoiID-1)*5+3;
+
+	size=xA.length;
+	for(i=0;i<size;i++) {
+		xA[i]=getPixel(i,currentInfoColx);
+		yA[i]=getPixel(i,currentInfoColy);
+		zA[i]=getPixel(i,currentInfoColz);
+	}	
+	selectImage(currentImageID);
+} 
+
+//*********************** add label to the Roi ********************************
+
+function Annote_checkBorderWidth(xpos) {
+	ww=getWidth();
+	leftbound=10;
+	rightbound=ww-10;
+	xshift=0;
+	if (xpos<leftbound) {
+		xshift=1;
+	}
+	if (xpos>rightbound) {
+		xshift=-1;
+	}	
+	return xshift;
+}
+
+function Annote_checkBorderHeight(ypos) {
+	wh=getHeight();
+	topbound=23;
+	bottombound=wh-23;
+	yshift=0;
+	if (ypos<topbound) {
+		yshift=1;
+	}
+	if (ypos>bottombound) {
+		yshift=-1;
+	}	
+	return yshift;
+}
+
+function Annote_ROI() {
+	if (!isOpen("Track_ROIinfo.tif")) {
+		showMessage("error","You Need a ROI info window!");
+	}
+	else {
+		RoiID=getNumber("RoiID?",1);
+		Recreate_ROI_core(RoiID);
+		getBoundingRect(roix, roiy, roiwidth, roiheight);
+		typex=roix+(roiwidth*Annote_checkBorderWidth(roix));
+		typey=roiy+(roiheight*Annote_checkBorderHeight(roiy));
+		setForegroundColor(255, 255, 255);
+		setBackgroundColor(0, 0, 0);
+		drawString(RoiID, typex, typey);		
+	}
+}
+
+macro "Print ROI number" {
+	Annote_ROI();
+}
+//-------------------------------------------------- ROI modules down to here ------------------------------------------------------
+//******************************************************************************************************************
+
+macro '-' {} 
+
+//************************************** Misc Utilities ****************************************
+
+//++++++ make a new window with a copy of image from specified frame of a stack
+function makeAcopyFrame(FrameNum) {
+	op="slice="+FrameNum;
+	run("Set Slice...", op);
+	ww=getWidth();
+	wh=getHeight();
+
+	// Prepare the track plotting 
+	run("Select All");
+	run("Copy");
+	op="name=FirstImg type=8-bit fill=White width="+ww+" height="+wh+" slices=1";
+	run("New...", op);
+	run("Paste");
+}
+
+function kPrintStates() {
+	print(" ");
+	print("Cell Detection Mode:"+celldetection_mode);
+	print("dt (sec):"+deltaT+"     Scale XY(um/pixel):"+micromPpix+"     Scan Range (pixels):"+scanrange);
+	print("Z thickness:"+zframethickness+"     Z frames:"+zframes+"    Z Scan Range:"+zscanrange);
+}
+
+function makeSubStackMontage(substackID) {
+	selectImage(substackID);
+	frames=nSlices;
+	cols=10;
+	rows=1+floor(nSlices/cols);
+	op="columns="+cols+" rows="+rows+" scale=3 first=1 last="+frames+" increment=1 border=0 ";
+	run("Make Montage...", op);
+	montID=getImageID();
+	run("Enhance Contrast", "saturated=0.4 ");
+	selectImage(substackID);
+//	run("Close");
+	//return montID;
+}
+
+macro "Make Montage [q]" {
+	subID=getImageID();
+	makeSubStackMontage(subID);
+}
+
+
+
+//**************************************************************************************
+//******************************** Track Plotting **************************************
+
+//040426
+// Plot dots at the cell center.
+function PlotDotatCell(substackID,resultXroiA,resultYroiA,startframe,frames) {
+	selectImage(substackID);
+	//frames=nSlices;
+	endframe=startframe+frames;
+	run("RGB Color");
+	setForegroundColor(255,0,0);
+	//setColor(255,0,0);
+	for(i=startframe;i<endframe;i++) {
+		op="slice="+i;
+		run("Set Slice...", op);
+		spacerx=resultXroiA[i]+space4substack;
+		spacery=resultYroiA[i]+space4substack;
+		makeOval(spacerx, spacery, 1, 1);
+		run("Fill", "slice");
+	}
+	setForegroundColor(255, 255, 255);
+}
+
+//------------- Drawing Z scale bar ----------------------------------
+function DrawZcodeBar() {
+	ww=getWidth();
+	wh=getHeight();
+	xpos=ww-30;
+	ypos=wh-60;	
+	k=50;
+	for(i=ypos;i<ypos+50;i++) {
+		level=zframes/50*k;
+		TrackR=(255/zframes)*level;
+		TrackG=abs((255/zframes)*level-50);
+		TrackB=(255-(255/zframes)*level);
+		//setForegroundColor(TrackR, TrackG, TrackB);
+		setColor(TrackR, TrackG, TrackB);
+		drawLine(xpos, i, xpos+5, i);
+		k-=1;		
+	}
+	updateDisplay();	
+}
+
+function labelZcodeBar() {
+	setBackgroundColor(0, 0, 0);
+	//setForegroundColor(255, 255, 255);
+	setColor(255, 255, 255);
+	ww=getWidth();
+	wh=getHeight();
+	//run("Colors...", "foreground=white background=black selection=yellow");
+	xpos=ww-20;
+	ypos=wh-10;
+	stringinfo="1";	
+	drawString(stringinfo, xpos, ypos);
+	ypos=wh-60;	
+	stringinfo=zframes;
+	drawString(zframes, xpos, ypos);
+}
+
+//macro "testZcodeBar" {
+function drawColorZ() {
+	DrawZcodeBar(); 
+	//wait(500);
+	labelZcodeBar();
+}	
+
+//---------------- Z scale bar end---------------------------------------
+//----------------- track plotting------------------------------------------
+
+//040425
+//for plotting tracks
+function DrawTrackCore(startNum,endNum,TrackR,TrackG,TrackB) {
+	run("RGB Color");
+	setForegroundColor(TrackR,TrackG,TrackB);
+	for(k=startNum;k<(endNum);k++) {
+		xa=getResult("xPOS",(k));
+		xb=getResult("xPOS",(k+1));
+		ya=getResult("yPOS",(k));
+		yb=getResult("yPOS",(k+1));
+		drawLine(xa, ya, xb, yb);
+	}
+	setForegroundColor(255, 255, 255);
+}
+
+//reffer to arrays
+function drawtrackCore2(drawframeID,xpa,ypa,zpa) {
+	selectImage(drawframeID);
+	run("RGB Color");
+	//setForegroundColor(TrackR,TrackG,TrackB);
+	size=xpa.length-1;
+	for(i=0;i<size;i++) {
+		level=(zpa[i]+zpa[i+1])/2;
+		TrackR=(255/zframes)*level;
+		TrackG=abs((255/zframes)*level-50);
+		TrackB=(255-(255/zframes)*level);		
+		setColor(TrackR,TrackG,TrackB);
+		xa=xpa[i];
+		xb=xpa[i+1];
+		ya=ypa[i];
+		yb=ypa[i+1];
+		drawLine(xa, ya, xb, yb);
+	}
+	//setForegroundColor(255, 255, 255);
+}
+function DrawTrackAll(StartRoiID,EndRoiID,stackID) {
+	trackframeID=getImageID();
+	for(i=StartRoiID;i<EndRoiID+1;i++) {
+		startframe=Return_ROI_startf(i);
+		endframe=Return_ROI_endf(i);
+		coordArraysize=endframe-startframe+1;
+		resxA=newArray(coordArraysize);
+		resyA=newArray(coordArraysize);
+		reszA=newArray(coordArraysize);
+		restoreCoordArray(i,resxA,resyA,reszA);
+		drawtrackCore2(trackframeID,resxA,resyA,reszA);
+	}
+}
+
+macro "Draw All Tracks in a new Window" {
+	StartRoiID=getNumber("start RoiID",1);
+	EndRoiID=getNumber("end RoiID",2);
+	stackID=getImageID();
+	makeAcopyFrame(1);
+	DrawTrackAll(StartRoiID,EndRoiID,stackID)
+	drawColorZ();
+}
+
+function DrawTrackAll_stack(StartRoiID,EndRoiID,stackID) {
+	selectImage(stackID);
+	frames=nSlices;
+	for(i=StartRoiID;i<EndRoiID+1;i++) {
+		startframe=Return_ROI_startf(i);
+		endframe=Return_ROI_endf(i);
+		coordArraysize=endframe-startframe+1;
+		resxA=newArray(coordArraysize);
+		resyA=newArray(coordArraysize);
+		reszA=newArray(coordArraysize);
+		restoreCoordArray(i,resxA,resyA,reszA);
+		for(j=0;j<frames;j++) {
+			op="slice="+(j+1);
+			run("Set Slice...", op);		
+			drawtrackCore2(stackID,resxA,resyA,reszA);
+			drawColorZ();
+		}
+	}
+}
+
+macro "Draw All Tracks in a Stack" {
+	StartRoiID=getNumber("start RoiID",1);
+	EndRoiID=getNumber("end RoiID",2);
+	stackID=getImageID();
+	DrawTrackAll_stack(StartRoiID,EndRoiID,stackID);
+}
+
+function PlotTrackDynamic_stack(RoiID,stackID,paint) {
+	selectImage(stackID);
+	frames=nSlices;
+	startframe=Return_ROI_startf(RoiID);
+	endframe=Return_ROI_endf(RoiID);
+	coordArraysize=endframe-startframe+1;
+	resxA=newArray(coordArraysize);
+	resyA=newArray(coordArraysize);
+	reszA=newArray(coordArraysize);
+	restoreCoordArray(RoiID,resxA,resyA,reszA);
+	if (paint) {
+		 run("RGB Color");
+		setForegroundColor(255,0,0);
+	}
+	for(i=0;i<resxA.length;i++) {
+		op="slice="+(startframe+i);
+		run("Set Slice...", op);
+		makeOval(resxA[i]-4,resyA[i]-4, 9, 9);
+		wait(50);	
+		if (paint) {
+			makeOval(resxA[i]-1,resyA[i]-1, 3, 3);
+			run("Fill", "slice");
+		}
+		wait(50);	
+	}
+	setForegroundColor(255,255,255);
+}
+
+macro "Plot dynamic Track in a Stack [f1]" {
+	RoiID=getNumber("RoiID?",1);
+	stackID=getImageID();
+	PlotTrackDynamic_stack(RoiID,stackID,0);
+}
+macro "Plot dynamic paint Track in a Stack [f2]" {
+	RoiID=getNumber("RoiID?",1);
+	stackID=getImageID();
+	PlotTrackDynamic_stack(RoiID,stackID,1);
+}
+
+macro "Plot dynamic paint Track in a Stack All" {
+	sRoiID=getNumber("start RoiID?",1);
+	eRoiID=getNumber("start RoiID?",2);
+	stackID=getImageID();
+	for(i=sRoiID;i<eRoiID+1;i++) {
+		PlotTrackDynamic_stack(i,stackID,1);
+	}
+}
+
+//************* Average Speed calculation *******************
+
+// speed factor and z factor included.
+function returnAverageSpeed(xA,yA,zA) {
+	size=xA.length;
+	sigvel=0;
+	for(i=0;i<size-1;i++) {
+		sqv=pow(xA[i+1]-xA[i],2)+pow(yA[i+1]-yA[i],2)+pow((zA[i+1]-zA[i])*zfactor,2);
+		vel=sqrt(sqv);
+		vel*=speedfactor;
+		sigvel+=vel;
+	}
+	avevel=sigvel/(size-1);
+	return avevel;
+}
+
+//function returnAverage1array(velA) {
+//	size=velA.length;
+//	sigvel=0;
+//	for(i=0;i<size-1;i++) {
+//		sigvel+=velA[i];
+//	}
+//	avevel=(sigvel/size);
+//	return avevel;
+//}
+
+
+
+function SaveResultsCore(RoiID,resxA,resyA,reszA) {
+	row = 0;
+	labelx="C"+RoiID+"_X";
+	labely="C"+RoiID+"_Y";
+	labelz="C"+RoiID+"_Z";
+	for (row=0; row<resxA.length; row++) {
+		setResult("t", row, row*deltaT);
+		setResult(labelx, row, resxA[row]);
+		setResult(labely, row, resyA[row]);
+		setResult(labelz, row, reszA[row]);
+	}
+	updateResults();
+}
+
+macro "Save Coordinates as a table" {
+	requires("1.31g");
+	RoiID=getNumber("RoiID?",1);
+	run("Clear Results");
+	startframe=Return_ROI_startf(RoiID);
+	endframe=Return_ROI_endf(RoiID);
+	coordArraysize=endframe-startframe+1;
+	resxA=newArray(coordArraysize);
+	resyA=newArray(coordArraysize);
+	reszA=newArray(coordArraysize);
+	restoreCoordArray(RoiID,resxA,resyA,reszA);
+	run("Clear Results");
+	SaveResultsCore(RoiID,resxA,resyA,reszA);
+	selectWindow("Results");
+	run("Text..."); // File>Save As>Text
+}
+
+macro "-" {}
+
+//********************************************************************************
+//**************** Z-intensity profiling **********************	(040503 - )
+
+function ReturnXYframenumXYZT(currentFrame) {
+	CurrentXY=(floor(currentFrame/zframes));
+	return CurrentXY;
+}
+
+// returns first frame number in XYZT stack from its projection XYT stack
+function ReturnXYZTframenumXY(currentFrameXY) {
+	CurrentFrame=(currentFrameXY-1)*zframes+1;
+	return CurrentFrame;
+}
+
+function IntensityPeakinZaxisCore(roix, roiy, roiwidth, roiheight,startframe) {
+	ROIarray=newArray(roiwidth*roiheight);
+	AveIntarray=newArray(zframes);
+	j=0;
+	for(i=startframe;i<startframe+zframes;i++) {
+		SetSliceInfo="slice="+i;
+		run("Set Slice...", SetSliceInfo);
+		convertROItoAR(roix,roiy,roiwidth,roiheight,ROIarray);	
+		AveIntarray[j]=findAVEofArray(ROIarray);
+		j+=1;
+	}		
+	peakpos=(findMAXinArray(AveIntarray));
+	return peakpos;
+}
+
+
+
+//*************************************************************
+
+
+// 3D tracking main 040504
+// initial Z position is defined by the highest intensity.
+// afterward, the z-position is determined by 3D corss correlation.
+function TrackMainXYZ(RoiID,threshold,startframe,endframe) {
+	run("Clear Results");
+	stackID=getImageID();
+	ww=getWidth();
+	wh=getHeight();
+	getBoundingRect(roix, roiy, roiwidth, roiheight);
+	frames=endframe-startframe+1;
+	run("Set Measurements...", " mean center display  redirect=None decimal=1");
+	scanWidth=(scanrange*2)+roiwidth;	
+	scanHeight=(scanrange*2)+roiheight;
+	scanZ=zscanrange*2+1;  //changed 040608
+
+	scanIteration=scanWidth*scanHeight;
+	countall=0;
+	selectImage(stackID);
+
+	resultX=newArray(frames);
+	resultY=newArray(frames);
+	resultZ=newArray(frames);
+
+	resultROIX=newArray(frames);
+	resultROIY=newArray(frames);
+	resultROIZ=newArray(frames);
+
+	resultNextWinX=newArray(frames);
+	resultNextWinY=newArray(frames);
+	resultNextWinZ=newArray(frames);	
+	
+	j=0;
+	for(frameloop=startframe;frameloop<(endframe+1);frameloop++) {
+		firstframeXY=ReturnXYZTframenumXY(frameloop); 
+		op="slice="+firstframeXY;
+		run("Set Slice...", op);
+		if (j!=0) {		
+			roix=resultNextWinX[j-1];//getResult("xWIN",(j));
+			roiy=resultNextWinY[j-1];//getResult("yWIN",(j));
+			roiz=resultNextWinZ[j-1];//getResult("yWIN",(j));
+		} else {
+			roiz=IntensityPeakinZaxisCore(roix, roiy, roiwidth, roiheight,ReturnXYZTframenumXY(frameloop));
+
+		}
+		//print ("roiz:"+roiz);
+		xstart=ReturnStartPos(roix,scanrange,ww,roiwidth);
+		ystart=ReturnStartPos(roiy,scanrange,wh,roiheight);
+		zstart=roiz-zscanrange;
+		if (zstart<zscanrange) {
+			zstart=zscanrange;		//modified 040608
+		}
+		c=zframes-scanZ;
+		if (zstart>c) {
+			zstart=c;
+		}
+		selectImage(stackID);
+		frameXYZtemp=(roiz+firstframeXY); 
+		op="slice="+frameXYZtemp;
+		run("Set Slice...", op);
+		sourceA=newArray(roiwidth*roiheight);
+		convertROItoAR(roix,roiy,roiwidth,roiheight,sourceA);
+
+		tempCenterSlice=zstart+zscanrange;
+
+		frameXYZtemp=(tempCenterSlice+firstframeXY); 
+		op="slice="+frameXYZtemp;
+		run("Set Slice...", op);		
+		arraymaxpos=crosscorrelationXYZMAXCC(xstart,ystart,scanWidth,scanHeight,roiwidth,roiheight,sourceA,frameXYZtemp);
+		loopx=scanWidth-roiwidth+1;
+		loopy=scanHeight-roiheight+1;
+		loopz=zscanrange*2+1;
+		zCoord=floor(arraymaxpos/loopx/loopy);
+		xyCoord=arraymaxpos-zCoord*loopx*loopy;
+		yCoord=floor(xyCoord/loopx);
+		xCoord=xyCoord-yCoord*loopx;
+		zCoord+=(zstart);
+		if (zCoord<0) {		//040608
+			zCoord=0;
+		}
+		yCoord+=ystart;
+		xCoord+=xstart;
+		selectImage(stackID);
+		frameXYZdetermined=(zCoord+ReturnXYZTframenumXY(frameloop)); 
+		op="slice="+frameXYZdetermined;
+		run("Set Slice...", op);
+
+		makeRectangle(xCoord, yCoord, roiwidth, roiheight);
+		run("Copy");
+		
+		if (celldetection_mode==1) {
+			resultROIX[j]=roiwidth/2;
+			resultROIY[j]=roiheight/2;
+		}
+		else {
+			if (celldetection_mode==2) {
+				detCellinROI_CM(roiwidth,roiheight,threshold);
+			}
+			else {
+				if (celldetection_mode==4) {
+					detCellinROI_particle(roiwidth,roiheight,threshold);
+				}
+				else {
+					detCellinROI_wand(roiwidth,roiheight,threshold);
+				}
+				
+			}
+			currentN=nResults;
+			resultROIX[j]=getResult("XM", currentN-1);
+			resultROIY[j]=getResult("YM", currentN-1);
+		}	
+		resultROIZ[j]=zCoord;			 
+
+		resultX[j]=xCoord+resultROIX[j];
+		resultY[j]=yCoord+resultROIY[j];
+		resultZ[j]=zCoord;
+
+		resultNextWinX[j]=resultX[j]-(roiwidth/2);
+		resultNextWinY[j]=resultY[j]-(roiheight/2);
+		resultNextWinZ[j]=zCoord;
+
+		selectImage(stackID);
+		subroiwidth=roiwidth+2*space4substack;
+		subroiheight=roiheight+2*space4substack;
+		makeRectangle(xCoord-space4substack, yCoord-space4substack, subroiwidth, subroiheight);
+		run("Copy");
+		if (j==0) {
+			op="name=subSTK_cell"+RoiID+" type=8-bit fill=White width=" + subroiwidth + " height=" + subroiheight + " slices=1";
+			run("New...", op);
+			subID=getImageID();
+			run("Paste");
+		}
+		else {
+			//selectWindow("subSTK");
+			selectImage(subID);
+			run("Add Slice");
+			run("Paste");	
+		}
+		
+		selectImage(stackID);		
+		makeOval(resultX[j]+space4substack, resultY[j]+space4substack, 3, 3);
+		//run("Next Slice [>]");
+		j+=1;
+	}
+	//run("Clear Results");
+	arrayTOresultsXYZ(resultX,resultY,resultZ);
+	arrayTOresultsROIXYZ(resultROIX,resultROIY,resultZ);
+	recordCoordArray(RoiID,resultX,resultY);
+	recordCoordArrayZ(RoiID,resultZ);
+
+	PlotDotatCell(subID,resultROIX,resultROIY,0,frames);
+	//montID=makeSubStackMontage(subID);
+	average_v=returnAverageSpeed(resultX,resultY,resultZ);
+	//average_v*=speedfactor;
+	op="Cell"+RoiID+" Average Velocity("+speedunit+") "+average_v;
+	print(op);
+	selectImage(stackID);
+	//drawtrackCore2(firstframeID,resultX,resultY,0,255,255);
+}
+
+
+
+macro "-" {}
+
+macro "3D Trackcer Single XYZ (Recorded ROI) [f12]" {
+	RoiID=getNumber("RoiID?",1);
+	//scanrange=getNumber("Scan Range",10);
+	kPrintStates();
+	Recreate_ROI_core(RoiID);
+	threshold=Return_ROI_threshold(RoiID);
+	startframe=Return_ROI_startf(RoiID);
+	endframe=Return_ROI_endf(RoiID);
+	TrackMainXYZ(RoiID,threshold,startframe,endframe);
+	stackID=getImageID();
+	makeAcopyFrame(1);	
+	DrawTrackAll(RoiID,RoiID,stackID);
+}
+
+macro "3D Trackcer Multiple XYZ (Recorded ROI) " {
+	startROI=getNumber("start ROI ID?",1);
+	endROI=getNumber("end ROI ID?",2);
+	CellNum=endROI-startROI+1;//CellNum=getNumber("How Many ROIs?",1);
+	kPrintStates();
+	for(i=startROI;i<endROI+1;i++) {
+		RoiID=i;//+1;
+		Recreate_ROI_core(RoiID);
+		threshold=Return_ROI_threshold(RoiID);
+		startframe=Return_ROI_startf(RoiID);
+		endframe=Return_ROI_endf(RoiID);
+		TrackMainXYZ(RoiID,threshold,startframe,endframe);
+	}
+	//StartRoiID=1;
+	//EndRoiID=CellNum;
+	stackID=getImageID();
+	makeAcopyFrame(1);
+	DrawTrackAll(startROI,endROI,stackID);//DrawTrackAll(StartRoiID,EndRoiID,stackID);
+}
+
+//************************** Array to Results WIndow *****************************
+//040425
+// output array into "Results" Window
+
+//3D version
+function arrayTOresultsXYZ(xposarray,yposarray,zposarray) {
+	sizex=xposarray.length;
+	for (i=0; i<sizex; i++) {
+		setResult("xPOS",i,xposarray[i]);
+		setResult("yPOS",i,yposarray[i]);
+		setResult("zPOS",i,zposarray[i]);
+		//print(tempx);
+	}
+	updateResults();
+}
+
+
+//040426
+//++ output coordinates within the ROI array ++
+//3D version
+function arrayTOresultsROIXYZ(xposarray,yposarray,zposarray) {
+	sizex=xposarray.length;
+	for (i=0; i<sizex; i++) {
+		setResult("RPOSx",i,xposarray[i]);
+		setResult("RPOSy",i,yposarray[i]);
+		setResult("RPOSz",i,zposarray[i]);
+
+		//print(tempx);
+	}
+	updateResults();
+}
+
+
+//************************* Arrays to ROI, ROI to arrays, ross-Correlation******************************
+function convertROItoAR(roix,roiy,roiwidth,roiheight,ar) {
+	k=0;
+	for(i=roiy;i<roiy+roiheight;i++) {
+		for(j=roix;j<roix+roiwidth;j++) {
+			ar[k]=getPixel(j,i);
+			k+=1;
+		}	 
+	}
+	//print("done...");
+}
+
+//macro "testARconvert" {
+
+//	getBoundingRect(roix, roiy, roiwidth, roiheight);	
+//	ar=newArray(roiwidth*roiheight);
+//	convertROItoAR(roix,roiy,roiwidth,roiheight,ar)
+//	for(i=0;i<ar.length;i++) {
+//		print(ar[i]);
+//	}
+//}
+
+// returns the point number where the highest value within the array.
+function findMAXinArray(a) {
+	size=a.length;
+	highcor=0;
+	highnum=0;
+	for(i=0;i<size;i++) {
+		if (a[i]>highcor) {
+			highcor=a[i];
+			highnum=i;
+		}
+	}
+	return highnum;
+}
+
+// finds the average of an array. 
+function findAVEofArray(a) {
+	size=a.length;
+	intsigma=0;
+	for(i=0;i<size;i++) {
+		intsigma+=a[i];
+	}
+	intsigma/=size;
+	return intsigma;
+}
+
+//returns the cross correlation value (not-normalized)
+//array a and b must have a same size.
+function returnsCrossCorrelation(a,b) {
+	arraysize=a.length;
+	ccval=0;
+	for (j=0;j<arraysize;j++) {
+		ccval+=a[j]*b[j];
+	}
+	return ccval;
+}
+
+// Returns the posiiton where the cross-correlation is the highest.
+//scanning region is defined by (scanx,scany,scanwidth,scanheight)
+//kernel is in a form of an array ("a"), and its width and height is given by (roiwidth,roiheight).
+function crosscorrelationMAX2(scanx,scany,scanwidth,scanheight,roiwidth,roiheight,a) {
+	loopx=scanwidth-roiwidth+1;
+	loopy=scanheight-roiheight+1;
+	b=newArray(a.length);
+	cc=newArray(loopx*loopy);
+	k=0;
+	for (j=0;j<loopy;j++) {
+		for (i=0;i<loopx;i++) {
+			convertROItoAR(scanx+i,scany+j,roiwidth,roiheight,b);
+			cc[k]=returnsCrossCorrelation(a,b);
+			k+=1;
+		}
+	}
+	highestPOS=findMAXinArray(cc);
+	return highestPOS;
+}
+
+//proto-type for z-tracking by cross-correlation
+function crosscorrelationMAXZ(roix,roiy,roiwidth,roiheight,currentFrame,a) {
+	startframe=currentFrame-zscanrange;
+	loopz=zscanrange*2+1;
+	b=newArray(a.length);
+	cc=newArray(loopz);
+	k=0;
+	for (i=startframe;i<startframe+loopz;i++) {
+		SetSliceInfo="slice="+i;
+		run("Set Slice...", SetSliceInfo);
+		convertROItoAR(roix,roiy,roiwidth,roiheight,b);
+		cc[k]=returnsCrossCorrelation(a,b);
+		k+=1;
+	}
+	highestPOS=findMAXinArray(cc);
+	return highestPOS;
+}
+
+// 3D cross correlation 040504
+function crosscorrelationXYZMAXCC(scanx,scany,scanwidth,scanheight,roiwidth,roiheight,a,currentFrameXYZ) {
+	loopx=scanwidth-roiwidth+1;
+	loopy=scanheight-roiheight+1;
+	b=newArray(a.length);
+	cc=newArray(loopx*loopy*(zscanrange*2+1));
+	k=0;
+	zstart=currentFrameXYZ-zscanrange;
+	zend=currentFrameXYZ+zscanrange;
+	for(m=zstart;m<zend+1;m++) {
+		SetSliceInfo="slice="+m;
+		run("Set Slice...", SetSliceInfo);		
+		for(j=0;j<loopy;j++) {
+			for (i=0;i<loopx;i++) {
+				convertROItoAR(scanx+i,scany+j,roiwidth,roiheight,b);
+				cc[k]=returnsCrossCorrelation(a,b);
+				k+=1;
+			}
+		}
+	}
+	highestPOS=findMAXinArray(cc);
+	return highestPOS;
+}
+
+//*******************************************************************************************************************************************
+//**************************************   determination of cell position within the cropped ROI  *****************************************
+//		
+
+//040426
+// by using the wand tool
+
+function detCellinROI_wand(roiwidth,roiheight,threshold) {
+		op="name=ShiftImg type=8-bit fill=White width=" + roiwidth + " height=" + roiheight + " slices=1";
+		run("New...", op);
+		run("Paste");
+		shiftID=getImageID();
+		op="name=EcImg type=8-bit fill=White width=" + roiwidth + " height=" + roiheight + " slices=1";
+		run("New...", op);
+		run("Paste");
+		run("Enhance Contrast", "saturated=10   ");
+		updateDisplay();
+		resetMinAndMax();
+		run("Measure");
+		run("Close");
+
+		currentN=nResults;
+		wandX=getResult("XM", currentN-1);
+		wandY=getResult("YM", currentN-1);
+		//setMinAndMax(threshold, threshold);
+		selectImage(shiftID);
+		setMinAndMax(threshold, 255);		//for white signal 040425
+		//doWand((roiwidth/2),(roiheight/2));
+		doWand(wandX,wandY);
+		run("Measure");
+		selectImage(shiftID);
+		run("Close");
+
+}
+
+// center of mass
+function detCellinROI_CM(roiwidth,roiheight,threshold) {
+		op="name=ShiftImg type=8-bit fill=White width=" + roiwidth + " height=" + roiheight + " slices=1";
+		run("New...", op);
+		run("Paste");
+		shiftID=getImageID();
+		run("Enhance Contrast", "saturated=10   ");
+		updateDisplay();
+		resetMinAndMax();
+		run("Measure");
+		run("Close");
+		selectImage(shiftID);
+		run("Close");
+}
+
+// particle analysis function (No. 4)
+function detCellinROI_particle(roiwidth,roiheight,threshold) {
+		op="name=ShiftImg type=8-bit fill=White width=" + roiwidth + " height=" + roiheight + " slices=1";
+		run("New...", op);
+		run("Paste");
+		shiftID=getImageID();
+		setThreshold(threshold, 255);		//for white signal 040425
+		op="minimum="+particle_min+" maximum=1000 bins=20 show=Nothing display     ";
+		run("Analyze Particles...", op);
+		//run("Measure");
+		selectImage(shiftID);
+		run("Close");
+}
+
+//***** new functions (040510) ********
+
+function ReturnYfromPos(pos,xloop) {
+	yposdec=pos/xloop;
+	ypos=floor(yposdec);
+	return ypos;
+}
+
+function ReturnXfromPos(pos,ypos,xloop) {
+	xpos=pos-(ypos*xloop);
+	return xpos;
+}
+
+function ReturnStartPos(roipos,scanrange,winsize,roisize) {
+	startpos=roipos-scanrange;
+	if (startpos<0) {
+		startpos=0;
+	}
+	a=winsize-roisize;
+	if (startpos>a) {
+		startpos=a;
+	}
+	return startpos;
+}
+
+
+
+
+
