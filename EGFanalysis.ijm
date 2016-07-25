@@ -1,13 +1,13 @@
 //*** EGFR accumulation measurements:***
 //
 //Kota Miura (miura@embl.de) started: 060808
-// analysis algorithm proposed bby Carsten Schulz @ embl.
+// analysis algorithm proposed by Carsten Schulz @ embl.
 // process: get profile of a line ROI, get first-order derivative with different dx.
-// "Sigma-Derivative Analysis [F1]" created. 
+// "Sigma-Derivative Analysis [F1]" created.
 
 //
 
-var dx=1; 
+var dx=1;
 var windowsize=2;	//"windowsize" pixels will be added up, and used for the derivative
 var linethickness=10;
 
@@ -57,7 +57,7 @@ macro "Sigma-Derivative Analysis [F1]" {
 //works with single frame, to optimize the parameters
 // line width, windowsize, dx
 function K_profilederivative() {
-	
+
 	op="line="+linethickness;
 	run("Line Width...", op);
 	if (isOpen("Log")) {
@@ -86,7 +86,7 @@ function K_sigmaderivative(){
 	if (graphswitch==1) {
 		K_create2Plots(shrunkprofileA,derivativeA);
 	}
-	
+
 	sigma_derivative=0;
 	for (i=0;i<derivativeA.length;i+=1) {
 		sigma_derivative+=abs(derivativeA[i]);
@@ -139,22 +139,22 @@ function K_measurestack_deriv() {
 }
 
 //******** funcitons ****************
-shrink the profile by summing up points defined by windowsize. 
+shrink the profile by summing up points defined by windowsize.
 function K_Retshurnksmoothing(pointnum, windowsize, srcA) {
 	windowsum=0;
-	for (j=0; j<windowsize; j++) 
+	for (j=0; j<windowsize; j++)
 		windowsum+=srcA[pointnum*windowsize+j];
 	return windowsum;
 }
 
-//to set a plot range to fit a curve. global variables are used. 
+//to set a plot range to fit a curve. global variables are used.
 function K_updatePlotRange(referenceA) {
 	for (k=0;k<referenceA.length;k++) {
 		if (PlotRange_y_max<referenceA[k])
 			PlotRange_y_max=referenceA[k];
 		if (PlotRange_y_min>referenceA[k])
 			PlotRange_y_min=referenceA[k];
-	}	
+	}
 }
 
 //********* Plotting *******
