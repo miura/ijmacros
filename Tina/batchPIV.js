@@ -7,24 +7,25 @@ Change following variables
 
 Kota Miura (miura@embl.de)
 */
-//path ="D:\\People\\Tina\\20110813\\";
-path = "Z:\\Tina\\";
-//savepath = path + "out\\"; 
+
+/*** here, customize paths and filename ***/
+path = "Z:\\Tina\\";  //path ="D:\\People\\Tina\\20110813\\";
 savepath = path + "outNoneSeg\\"; 
 imagestack = "110608wt2.tif.proc.tif.noseg.tif";
+/*** ***/
+
 imp = IJ.openImage(path+imagestack);
 if (imp.getStackSize()<2) {
 	IJ.error("spedified file is not a stack");
 }
+
+// optional settings for PIV. Could be adjusted. 
 pivop1 ="piv1=128 piv2=64 piv3=0 what=[Accept this PIV and output] noise=0.20 threshold=5 c1=3 c2=1 ";
-//IJ.run(imp, "iterative PIV(Cross-correlation)...", "piv1=128 piv2=64 piv3=0 what=[Accept this PIV and output] noise=0.20 threshold=5 c1=3 c2=1 save=[C:\\Documents and Settings\\Miura\\PIV_segmented_f284_285.txt]");
-//"piv1=128 piv2=64 piv3=0 what=[Accept this PIV and output] noise=0.20 threshold=5 c1=3 c2=1"
+
 importClass(Packages.ij.macro.Interpreter);
 macro = new Interpreter(); 
 macro.batchMode = true;
 for (var i = 0; i < (imp.getStackSize() -1 ); i ++){
-//for (var i = 0; i < (4 -1 ); i ++){
-//for (var i = 285; i < 286; i ++){
 	imppart = alias2frames(imp, i+1);		
 	pivop2= savepath + imagestack + i + "_" + (i+1) + ".txt";
 	saveop = " save=" + pivop2;
@@ -32,7 +33,6 @@ for (var i = 0; i < (imp.getStackSize() -1 ); i ++){
 	IJ.log(op);
 	IJ.log("=== Working on frame " + i + " and " + (i+1)); 
 	try {
-		//IJ.run(imppart, "iterative PIV(Cross-correlation)...", op);
 		IJ.run(imppart, "iterative PIV(Cross-correlation)...", op);
 	} catch(err){
 		macro.batchMode = false;
