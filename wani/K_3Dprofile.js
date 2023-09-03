@@ -23,13 +23,15 @@ var Gradius = 0.1;	//micrometer
 var Gextends = 0.5;	//micrometer
 
 //importing libraries
-importClass(Packages.org.apache.commons.math.geometry.euclidean.threed.Vector3D);
-importClass(Packages.org.apache.commons.math.stat.descriptive.DescriptiveStatistics);
+importClass(Packages.ij.util.Tools);
+importClass(Packages.org.apache.commons.math3.geometry.euclidean.threed.Vector3D);
+importClass(Packages.org.apache.commons.math3.stat.descriptive.DescriptiveStatistics);
 importPackage(Packages.util.opencsv);
 importPackage(Packages.ij.io);
 importPackage(Packages.java.io);
 importPackage(Packages.java.util);
-importClass(Packages.ij.util.Tools);
+importPackage(Packages.ij);
+importPackage(Packages.ij.measure);
 
 //scale should be set manually
 var xyscale = 0.056; //um/pixel
@@ -44,7 +46,7 @@ Gdiscstr = ""; //to check measured points
 od = new OpenDialog("Choose Data File", null);
 srcdir = od.getDirectory();
 filename = od.getFileName();
-fullpath = java.lang.String(srcdir+filename);
+fullpath = new java.lang.String(srcdir+filename);
 //IJ.log(fullpath.getClass());
 
 pntA = PointsfromFile(fullpath);
@@ -160,8 +162,8 @@ function PointsfromFile(datafilepath){
 	while (datait.hasNext()){
 		//IJ.log(datait.next()[0]);
 		var carray = datait.next();
-		var p1 = Vector3D(carray[0], carray[1], carray[2]);
-		var p2 = Vector3D(carray[3], carray[4], carray[5]);
+		var p1 = new Vector3D(carray[0], carray[1], carray[2]);
+		var p2 = new Vector3D(carray[3], carray[4], carray[5]);
 		pointsA.push([p1, p2]);
 	}
 	IJ.log("=== point pairs loaded from " + datafilepath);	
